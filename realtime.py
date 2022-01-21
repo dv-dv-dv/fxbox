@@ -1,17 +1,12 @@
 import pyaudio
 import time
 import numpy as np
-CHUNK = 1024
-BITS = np.int16
- 
-CHANNELS = 2
-BYTES_PER_CHANNEL = 2                                                                                                                                                                                                        
-RATE = 44100
-if BITS == np.int16:
-    BYTES_PER_CHANNEL = 2
-elif BITS == np.int24:
-    BYTES_PER_CHANNEL = 3
-ALENGTH = CHANNELS*BYTES_PER_CHANNEL*CHUNK
+
+#user imports
+import settings as cfg
+import compressor as comp
+
+
 p = pyaudio.PyAudio()
  
 print(p.get_default_host_api_info())
@@ -21,22 +16,20 @@ for x in range(0, no_indexes):
  
  
 def callback(in_data, frame_count, time_info, status):
-    #Get data into a usable format
-    data2 = np.frombuffer(in_data, dtype=np.int16)
-    data2 = data2.reshape(CHUNK,CHANNELS)
+    x = np.frombuffer(in_data, dtype=np.int16)
+    x = x.reshape(len(in_data)/(cfg.channels*cfg.bytes_per_channel),cfg.channels)
     #processing goes here
-    
-    #Get data back into buffer and send to output stream
-    data = data2.tostring()
-    out_data = data
+    y=comp.compressor(x)
+    #processing ends here
+    out_data = y.tostring()
     return (out_data, pyaudio.paContinue)
  
 stream = p.open(format=pyaudio.paInt16,
-                channels=CHANNELS,
-                rate=RATE,
+                channels=cfg.channels,
+                rate=cfg.samplerate,
                 output=True,
                 input=True,
-                frames_per_buffer=CHUNK,
+                frames_per_buffer=cfg.buffer,
                 stream_callback=callback)
  
 stream.start_stream()
