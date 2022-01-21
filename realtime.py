@@ -19,6 +19,7 @@ def callback(in_data, frame_count, time_info, status):
     x = np.frombuffer(in_data, dtype=np.int16)
     x = x.reshape(len(in_data)/(cfg.channels*cfg.bytes_per_channel),cfg.channels)
     #processing goes here
+
     y=comp.compressor(x)
     #processing ends here
     out_data = y.tostring()
@@ -26,6 +27,8 @@ def callback(in_data, frame_count, time_info, status):
  
 stream = p.open(format=pyaudio.paInt16,
                 channels=cfg.channels,
+                input_device_index = 0,
+                output_device_index = 0,
                 rate=cfg.samplerate,
                 output=True,
                 input=True,
