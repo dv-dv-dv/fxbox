@@ -1,71 +1,66 @@
+
 import numpy as np
 import math
 
 #user imports
 import settings as cfg
 
-ldprevout = 0
+outnminus1 = 0
 T = -30
 R = 7
 W = 10
 M = 0
 atk = math.exp(-1/(0.005*cfg.samplerate))
 rel = math.exp(-1/(0.2*cfg.samplerate))
+k = (2**(cfg.bytes_per_channel*8))/2
 
 def compressor(i):
-    o = np.ones((i.size/2, 2), dtype='i2')
+    in1 = i[:,0]
+    in2 = i[:,1]
     il = abs(i[:,0] + i[:,1])
-    odb1 = toDb(il)
-    odb2 = gainComp(odb1)
+    odb1 = vtoDb(il)
+    odb2 = vgainComp(odb1)
     odb3 = odb1 - odb2
-    odb4 = lvlDetect(odb3)
+    odb4 = vlvlDetect(odb3)
     gdb1 = odb4 - M
-    g = toLin(gdb1)
-    for n in range(i.size/2):
-        o[n,0] = int(float(i[n,0]) * g[n])
-        o[n,1] = int(float(i[n,1]) * g[n])
+    g = vtoLin(gdb1)
+    out1 = np.multiply(in1.astype(float),g)
+    out2 = np.multiply(in2.astype(float),g)
+    out = np.stack((out1,out2),axis=1)
+    o = out.astype('i2')
     return o
 
 def lvlDetect(i):
-    global ldprevout
-    o = np.zeros((i.size, 1))
-    outnminus1 = ldprevout
-    for n in range(i.size):
-        if i[n] > outnminus1:
-            o[n] = atk*outnminus1+(1-atk)*i[n]
-        else:
-            o[n] = rel*outnminus1+(1-rel)*i[n]
-        outnminus1 = o[n]
-    if i.size - 1 < 0:
-        ldprevout = 0
+    global outnminus1
+    if i > outnminus1:
+        o = atk*outnminus1+(1-atk)*i
     else:
-        ldprevout = o[i.size-1]
+        o = rel*outnminus1+(1-rel)*i
+    outnminus1 = o
     return o
 
 def gainComp(i):
-    o = np.zeros((i.size, 1))
-    for n in range(i.size):
-        if 2*(i[n]-T) < -W:
-            o[n] = i[n]
-        elif 2*abs(i[n]-T) <= W:
-            o[n] = i[n] + (1/R-1)*((i[n] - T + W/2)**2)/(2*W)
-        elif 2*(i[n] - T) > W:
-            o[n] = T + (i[n] - T)/R
+    if 2*(i - T) < -W:
+        o = i
+    elif 2*abs(i - T) <= W:
+        o = i + (1/R-1)*((i - T + W/2)**2)/(2*W)
+    elif 2*(i - T) > W:
+        o = T + (i - T)/R
     return o
 
 def toDb(i):
-    o = np.zeros((i.size, 1))
-    k = (2**(cfg.bytes_per_channel*8))/2
-    for n in range(i.size):
-        if i[n] == 0:
-            o[n] = -999.0;
-        else:
-            infl = float(i[n])/k
-            o[n] =20*math.log10(infl)
+    if(i==0):
+        o = -9999.0
+    else:
+        infl = float(i)/k
+        o = 20*math.log10(infl)
     return o
 
 def toLin(i):
-    o = np.zeros((i.size,1))
-    for n in range(i.size):
-        o[n] = 10**(-i[n]/20)
+    o = 10**(-i/20)
     return o
+
+vtoLin = np.vectorize(toLin)
+vtoDb = np.vectorize(toDb)
+vgainComp = np.vectorize(gainComp)
+vlvlDetect = np.vectorize(lvlDetect)
