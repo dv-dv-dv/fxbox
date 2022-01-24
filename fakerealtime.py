@@ -20,11 +20,12 @@ no_frames1 =  wfi.getnframes()
 no_frames2 = 0
 start_time = time.time()
 in_data = wfi.readframes(cfg.buffer)
+c = comp.Compressor()
 while len(in_data) > 0:
     x = np.frombuffer(in_data, dtype=np.int16)
     x = x.reshape(len(in_data)//(cfg.channels*cfg.bytes_per_channel),cfg.channels)
     #processing goes here
-    y=comp.compressor(x)
+    y=c.compressor(x)
     #processing ends here
     out_data = y.tobytes()
     wfo.writeframes(out_data)
