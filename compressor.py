@@ -2,9 +2,9 @@ import numpy as np
 import math
 
 # user imports
-import settings as cfg
+import config as cfg
 
-class AudioCompressor:
+class Compressor:
     def __init__(self, T=cfg.T, R=cfg.R, W=cfg.W, P=cfg.P, M=cfg.M, atk=cfg.atk, rel=cfg.rel):
         # define instance variables
         self.T = T
@@ -21,30 +21,41 @@ class AudioCompressor:
         self.vdecibels_to_linear = np.vectorize(self.decibels_to_linear)
         self.vlinear_to_decibels = np.vectorize(self.linear_to_decibels)
         self.vgain_computer = np.vectorize(self.gain_computer)
-        self.vlevel_detect = np.vectorize(self.level_detect)
+        self.vlevel_detector = np.vectorize(self.level_detector)
 
     # accepts an numpy array that contains two channel audio data
     # the audio data is then run through an audio compressor
     # outputs an numpy array that contains two channel audio data
-    def compressor(self, audio_input):
+    def compress(self, audio_input):
         channel_1 = self.P*audio_input[:,0]
         channel_2 = self.P*audio_input[:,1]
         level_abs = abs(channel_1 + channel_2)
         level_db = self.vlinear_to_decibels(level_abs)
         odb2 = self.vgain_computer(level_db)
         odb3 = level_db - odb2
-        odb4 = self.vlevel_detect(odb3)
-        gdb1 = self.M - odb4
-        g = self.vdecibels_to_linear(gdb1)
-        out1 = np.multiply(channel_1.astype(float),g)
-        out2 = np.multiply(channel_2.astype(float),g)
+        odb4 = self.vlevel_detector(odb3)
+        gain_db = self.M - odb4
+        gain_lin = self.vdecibels_to_linear(gain_db)
+        out1 = np.multiply(channel_1.astype(float), gain_lin)
+        out2 = np.multiply(channel_2.astype(float), gain_lin)
         out = np.stack((out1,out2),axis=1)
         audio_output = out.astype('i2')
         return audio_output
     
-    # accepts an audio_level, an value that represents an audio signal's loudness in either db or abs.
+    def set_variables(self):
+        global T, R, W, P, M, atk, rel
+        T = self.T
+        R = self.R
+        W = self.W
+        P = self.P
+        M = self.M
+        atk = self.atk
+        rel = self.rel
+        pass
+    
+    # accepts an audio_level, a value that represents an audio signal's loudness in either db or abs.
     # outputs
-    def level_detect(self, audio_level):
+    def level_detector(self, audio_level):
         if audio_level > self.level_detector_prev_out:
             o = self.atk*self.level_detector_prev_out + (1 - self.atk)*audio_level
         else:
@@ -52,7 +63,7 @@ class AudioCompressor:
         self.level_detector_prev_out = o
         return o
     
-    # accepts an audio_level, an value that represents an audio signal's loudness in either db or abs.
+    # accepts an audio_level, a value that represents an audio signal's loudness in either db or abs.
     def gain_computer(self, audio_level):
         if 2*(audio_level - self.T) < -self.W:
             o = audio_level
