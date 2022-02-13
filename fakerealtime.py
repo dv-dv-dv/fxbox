@@ -1,11 +1,20 @@
 def main():
     import wave
     import numpy as np
+    import sys, os
     
     ##user imports
     import config as cfg
     import compressor
     import convolver
+    
+    # Disable
+    def blockPrint():
+        sys.stdout = open(os.devnull, 'w')
+    
+    # Restore
+    def enablePrint():
+        sys.stdout = sys.__stdout__
     
     wfi = wave.open('guitar_sample16.wav', 'rb')
     wfo = wave.open('guitar_sample16_pyout.wav', 'wb')
@@ -13,7 +22,8 @@ def main():
     wfo.setnchannels(cfg.channels)
     wfo.setsampwidth(cfg.bytes_per_channel)
     wfo.setframerate(cfg.samplerate)
-    
+    # blockPrint()
+    enablePrint()
     in_data = B'\x00\x00\x00'
     out_data = B'\x00\x00\x00'
     in_data = wfi.readframes(cfg.buffer)
@@ -36,9 +46,13 @@ def main():
         in_data = wfi.readframes(cfg.buffer)
         count = count + 1
 
-        
     wfi.close()
     wfo.close()
     print (count)
+    
+    
+
+
+
 if __name__ == "__main__":
     main()
