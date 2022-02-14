@@ -37,7 +37,7 @@ def main():
         # processing goes here
         # y = comp.compress(x)
         test = conv.convolve(x[:,1])
-        y= np.transpose(np.concatenate((test,test)).reshape(2,-1))
+        y = np.transpose(np.concatenate((test,test)).reshape(2,-1))
         # processing ends here
         out_data = y.tobytes()
         # write out_data to output wav
