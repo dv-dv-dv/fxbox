@@ -24,25 +24,23 @@ class Convolver:
         height = 2
         n_start = 0
         n_cap = 99
-        (self.first_filter_fft, self.filter_lengths, self.offsets, self.filter_fft, self.filter_indices_fft) = self.partition_impulse(impulse, first_filter_length, height, n_start, n_cap)
+        (filter_lengths, filter_indices, offsets) = self.partition_impulse(math.ceil(impulse.shape[0]/cfg.buffer), first_filter_length, height, n_start, n_cap)
+        (first_filter_fft, filter_fft, filter_indices_fft) = self.compute_filter_fft(impulse, first_filter_length, filter_lengths, filter_indices)
+        self.filter_lengths = filter_lengths
+        self.offsets = offsets
+        self.first_filter_fft = first_filter_fft
+        self.filter_fft = filter_fft
+        self.filter_indices_fft = filter_indices_fft
+        self.number_of_filters = filter_lengths.size
         self.previous_buffers = np.zeros((2560, cfg.buffer), dtype=np.int16)
         self.convolution_buffer = np.zeros((2*self.previous_buffers.size, 1), dtype=np.double)
-        self.number_of_filters = self.filter_lengths.size
-        self.filter_use_amount = np.zeros(self.number_of_filters)
-        self.schedule = np.zeros(self.number_of_filters + 1)
         pass
     
-    def partition_impulse(self, impulse, first_filter_length, height, n_start ,n_cap):
-        # get first impulse
-        first_filter = impulse[0:first_filter_length*cfg.buffer, :]
-        first_filter_fft = np.fft.fft(first_filter, (first_filter_length + 1)*cfg.buffer, axis=0)
-        impulse = impulse[first_filter_length*cfg.buffer:impulse.shape[0], :]
-        
-        # partition the rest
-        space_left = -math.ceil(impulse.shape[0]/cfg.buffer)
-        filter_lengths = np.zeros(math.ceil(impulse.shape[0]/cfg.buffer), dtype=np.int16)
-        filter_indices = np.zeros(math.ceil(impulse.shape[0]/cfg.buffer), dtype=np.int32)
-        offsets = np.zeros(math.ceil(impulse.shape[0]/cfg.buffer), dtype=np.int32)
+    def partition_impulse(self, impulse_length, first_filter_length, height, n_start ,n_cap):
+        space_left = -impulse_length + first_filter_length
+        filter_lengths = np.zeros(impulse_length, dtype=np.int16)
+        filter_indices = np.zeros(impulse_length, dtype=np.int32)
+        offsets = np.zeros(impulse_length, dtype=np.int32)
         
         i = 0 # index
         n = n_start # nth power of 2
@@ -67,21 +65,29 @@ class Convolver:
         filter_lengths = filter_lengths[0:i]
         filter_indices = filter_indices[0:i+1]
         offsets = offsets[1:i+1] + first_filter_length
+        return filter_lengths, filter_indices, offsets
         
+    def compute_filter_fft(self, impulse, first_filter_length, filter_lengths, filter_indices):
+        first_filter = impulse[0:first_filter_length*cfg.buffer, :]
+        first_filter_fft = np.fft.fft(first_filter, (first_filter_length + 1)*cfg.buffer, axis=0)
+        impulse = impulse[first_filter_length*cfg.buffer:impulse.shape[0], :]
+
         # add zeros so that the sum of partitioned impulses 
         # and the impulse are the same length
+        space_left = np.sum(filter_lengths) - math.ceil(impulse.shape[0]/cfg.buffer)
+                                                        
         zeros_to_add = (space_left + 1)*cfg.buffer - impulse.shape[0]%cfg.buffer
         impulse = np.append(impulse, np.zeros((zeros_to_add, impulse.shape[1]), dtype=np.int16)).reshape(-1, 2)
         
         #compute fft of partitioned impulses
         filter_fft = np.zeros((2*impulse.shape[0], impulse.shape[1]), dtype=np.cdouble)
         filter_indices_fft = filter_indices*2
-        for j in range(0, i):
+        for j in range(0, filter_lengths.shape[0]):
             part_of_impulse = impulse[filter_indices[j]:filter_indices[j+1], :]
             part_of_filter_fft = np.fft.fft(part_of_impulse, 2*filter_lengths[j]*cfg.buffer, axis = 0)
             filter_fft[filter_indices_fft[j]:filter_indices_fft[j+1], :] = part_of_filter_fft
         
-        return first_filter_fft[:,1], filter_lengths, offsets, filter_fft[:, 1], filter_indices_fft
+        return first_filter_fft[:,1], filter_fft[:, 1], filter_indices_fft
     
     def convolve(self, audio_in):
         #save to previous buffers
@@ -107,9 +113,6 @@ class Convolver:
         audio_out = self.get_from_convolution_buffer()
         self.count = self.count + 1
         return audio_out
-    
-    def convolve_and_add_to_buffer(self, audio_to_filter_fft, filter_index, schedule):
-        pass
     
     def get_from_convolution_buffer(self, n=0):
         index1 = (self.count - n)*cfg.buffer
