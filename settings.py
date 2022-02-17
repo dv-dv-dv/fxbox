@@ -4,13 +4,13 @@ bytes_per_channel = 2
 channels = 2
 
 #default compressor variables
-T = -30
-R = 7
-W = 10
-P = 0
-M = 0
-atk = 0.005
-rel = 0.5
+threshold = -50
+ratio = 7
+knee_width = 10
+pre_gain = 0
+post_gain = 20
+attack = 0.005
+release = 0.5
 
 #default convolver variables
 wet = 1

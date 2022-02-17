@@ -16,7 +16,7 @@ class Compressor:
         self.attack = math.exp(-1/(attack*cfg.samplerate))
         self.release = math.exp(-1/(release*cfg.samplerate))
         self.level_detector_prev_out = 0
-        self.k = (2**(cfg.bytes_per_channel*8))/2
+        self.k = (2**(cfg.bytes_per_channel*8))/2 # max value of a 16 bit signed integer
         self.compute_params()
         
         asdf = np.int16
@@ -77,8 +77,8 @@ class Compressor:
         return db_value
     
     # accepts a db value and then converts it to linear
-    def log_to_linear(self, db_value):
-        linear_value = 2**(db_value)
+    def log_to_linear(self, log_value):
+        linear_value = 2**(log_value)
         return linear_value
     
 class Compressor2(Compressor):
