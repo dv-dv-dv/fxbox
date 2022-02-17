@@ -99,10 +99,7 @@ class Convolver:
     
     def convolve_and_add_to_conv_buffer(self, filter_index):
         i = filter_index
-        if i==0:
-            audio_to_filter = self.get_n_previous_buffers(self.filter_lengths[i])
-            self.audio_to_filter_fft = np.fft.rfft(audio_to_filter, 2*self.filter_lengths[i]*cfg.buffer, axis=0)
-        elif self.filter_lengths[i]!=self.filter_lengths[i-1]:
+        if (i==0)|(self.filter_lengths[i]!=self.filter_lengths[i-1]):
             audio_to_filter = self.get_n_previous_buffers(self.filter_lengths[i])
             self.audio_to_filter_fft = np.fft.rfft(audio_to_filter, 2*self.filter_lengths[i]*cfg.buffer, axis=0)
         self.add_to_convolution_buffer(self.convolve_with_filter_fft(self.audio_to_filter_fft, i), self.offsets[i])
@@ -166,9 +163,8 @@ class Convolver2():
     def convolve(self, audio_in):
         channel1_out = self.channel1.convolve(audio_in[:, 0])
         channel2_out = self.channel2.convolve(audio_in[:, 1])
-        # [:,:,0] is necessary because np.stack makes a 3d array where the 3rd dimension 
-        # is of length 1, so [:,:,0] removes that 3rd dimension
-        audio_out = np.stack((channel1_out, channel2_out), axis=1)[:,:,0] 
+        # [:,:,0] is necessary because np.stack makes a 3d array
+        audio_out = np.stack((channel1_out, channel2_out), axis=1)[:, :, 0] 
         return audio_out
     
     def import_from_wave(self, wave_file):
@@ -176,4 +172,4 @@ class Convolver2():
         wfi = wave.open(wave_file, 'rb')
         wave_bytes = wfi.readframes(wfi.getnframes())
         wfi.close()
-        return np.frombuffer(wave_bytes, dtype=np.int16).reshape(-1,2)
+        return np.frombuffer(wave_bytes, dtype=np.int16).reshape(-1, 2)

@@ -20,7 +20,7 @@ dry = 1
 post = 0.5
 
 # convolver engine variables, do not touch
-height = 2
+height = 4
 
 # define types
 float_size = 2
