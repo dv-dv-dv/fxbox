@@ -18,5 +18,4 @@ dry = 1
 post = 0.5
 
 # convolver engine variables, do not touch
-height = 4
-n_start = 0
+height = 2
