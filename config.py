@@ -21,6 +21,7 @@ post = 0.5
 
 # convolver engine variables, do not touch
 height = 4
+n_cap = 8
 
 # define types
 float_size = 2

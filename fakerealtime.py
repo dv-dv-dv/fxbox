@@ -19,7 +19,7 @@ def main():
     comp = compressor.Compressor2()
     conv = convolver.Convolver2('impulses/IMPSpring04.wav')
     count = 0
-    while len(in_data) == cfg.buffer*4:
+    while (len(in_data) == cfg.buffer*4)&(count < 999999999):
         x = np.frombuffer(in_data, dtype=np.int16)
         x = x.reshape(len(in_data)//(cfg.channels*cfg.bytes_per_channel),cfg.channels)
         # processing goes here
@@ -32,6 +32,7 @@ def main():
         y = test1
         if count==255:
             asdf = 123
+        print(count)
         # processing ends here
         out_data = y.tobytes()
         # write out_data to output wav
