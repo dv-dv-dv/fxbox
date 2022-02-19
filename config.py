@@ -20,7 +20,7 @@ dry = 1
 post = 0.5
 
 # convolver engine variables, do not touch
-height = 4
+height = 8
 n_cap = 8
 
 # define types

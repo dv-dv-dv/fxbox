@@ -7,7 +7,7 @@ import config as cfg
 class Compressor:
     def __init__(self, threshold=cfg.threshold, ratio=cfg.ratio, knee_width=cfg.knee_width, pre_gain=cfg.pre_gain, post_gain=cfg.post_gain, attack=cfg.attack, release=cfg.release):
         # define instance variables
-        db_to_log2_constant = math.log10(2) * 20
+        db_to_log2_constant = math.log10(2)*20
         self.threshold = threshold / db_to_log2_constant
         self.ratio = ratio
         self.knee_width = knee_width / db_to_log2_constant
