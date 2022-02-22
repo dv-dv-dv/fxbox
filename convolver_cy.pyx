@@ -3,12 +3,12 @@ import math
 import threading, queue
 import cython
 
-ITYPE = np.int16  # int type
-ctypedef np.int16_t ITYPE_t
-FTYPE = np.double;   # float type
-ctypedef np.double_t FTYPE_t
-@cython.boundscheck(False) # turn off bounds-checking for entire function
-@cython.wraparound(False)  # turn off negative index wrapping for entire function
+# ITYPE = np.int16  # int type
+# ctypedef np.int16_t ITYPE_t
+# FTYPE = np.double;   # float type
+# ctypedef np.double_t FTYPE_t
+# @cython.boundscheck(False) # turn off bounds-checking for entire function
+# @cython.wraparound(False)  # turn off negative index wrapping for entire function
 
 # user imports
 import config as cfg
