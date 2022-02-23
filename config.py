@@ -18,6 +18,6 @@ dry = 1
 post = 0.5
 
 # convolver engine variables
-height = 8
+height = 2
 n_cap = 8
 
