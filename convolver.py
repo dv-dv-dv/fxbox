@@ -1,7 +1,6 @@
 import numpy as np
 import math
-import threading, queue
-
+from pyfftw import inferfaces.nu,
 # user imports
 import config as cfg
 
@@ -10,8 +9,8 @@ class Convolver:
     def __init__(self, impulse, realtime=False):
         self.set_impulse(impulse)
         self.realtime=realtime
-        self.convolution_queue = queue.PriorityQueue()
-        threading.Thread(target=self.convolution_worker, daemon=True).start()
+        # threading.Thread(target=self.convolution_worker, daemon=True).start()
+        pyfftw.interfaces.cache.enable()
         pass
     
     # this function does the necessary work in order to get the impulse ready for use
@@ -88,7 +87,7 @@ class Convolver:
             n = 2*filter_lengths[j]*cfg.buffer
             filter_indices_fft[j+1] = filter_indices_fft[j] + n//2 + 1
             part_of_impulse = impulse[filter_indices[j]:filter_indices[j+1]]
-            part_of_filter_fft = np.fft.rfft(part_of_impulse, n)
+            part_of_filter_fft = pyfftw.interfaces.numpy_fft.rfft(part_of_impulse, n)
             filter_fft[filter_indices_fft[j]:filter_indices_fft[j+1]] = part_of_filter_fft
         return filter_fft, filter_indices_fft
     
@@ -99,21 +98,12 @@ class Convolver:
             if (self.count + 1)%self.filter_lengths[i] != 0: break
             elif (i==0)|(self.filter_lengths[i]!=self.filter_lengths[i-1]):
                 audio_to_filter = self.get_n_previous_buffers(self.filter_lengths[i])
-                audio_to_filter_fft = np.fft.rfft(audio_to_filter, 2*self.filter_lengths[i]*cfg.buffer)
-            self.convolution_queue.put((i, audio_to_filter_fft))
-        
-        if self.realtime == False:
-            self.convolution_queue.join()
+                audio_to_filter_fft = pyfftw.interfaces.numpy_fft.rfft(audio_to_filter, 2*self.filter_lengths[i]*cfg.buffer)
+            self.add_to_convolution_buffer(self.convolve_with_filter_fft(audio_to_filter_fft, i), self.offsets[i])
         
         audio_out = self.get_from_convolution_buffer()
         self.count = (self.count + 1)%self.count_max
         return audio_out
-    
-    def convolution_worker(self):
-        while True:
-            (i, audio_to_filter_fft) = self.convolution_queue.get()
-            self.add_to_convolution_buffer(self.convolve_with_filter_fft(audio_to_filter_fft, i), self.offsets[i])
-            self.convolution_queue.task_done()
     
     def get_from_convolution_buffer(self):
         index1 = (self.count)*cfg.buffer
@@ -136,7 +126,7 @@ class Convolver:
     def convolve_with_filter_fft(self, audio_to_filter_fft, filter_index):
         filter_fft = self.get_filter_fft(filter_index)
         audio_out_fft = filter_fft*audio_to_filter_fft
-        audio_out = np.fft.irfft(audio_out_fft)
+        audio_out = pyfftw.interfaces.numpy_fft.irfft(audio_out_fft)
         return audio_out.real
     
     def get_n_previous_buffers(self, n):

@@ -8,7 +8,7 @@ threshold = -50
 ratio = 7
 knee_width = 10
 pre_gain = 0
-post_gain = 15
+post_gain = 20
 attack = 0.005
 release = 0.5
 
@@ -19,5 +19,5 @@ post = 0.5
 
 # convolver engine variables
 height = 8
-n_cap = 8
+n_cap = 99999
 
