@@ -20,4 +20,3 @@ post = 0.5
 # convolver engine variables
 height = 8
 n_cap = 99999
-
