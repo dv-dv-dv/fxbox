@@ -6,8 +6,8 @@ def main():
     ##user imports
     import config as cfg
     import compressor_cy as compressor
-    import convolver_cy as convolver
-    # import convolver
+    # import convolver_cy as convolver
+    import convolver
     # import compressor
     
     wfi = wave.open('sjvoicesamp16.wav', 'rb')
@@ -23,10 +23,9 @@ def main():
     conv = convolver.Convolver2('impulses/IMPSpring04.wav')
     count = 0
     
-    
     print("buffer size is", cfg.buffer)
     print("starting fake real time...")
-    start = time.clock_gettime_ns(0)
+    start = time.perf_counter()
     while (len(in_data) == cfg.buffer*4)&(count < 999999999):
         x = np.frombuffer(in_data, dtype=np.int16)
         x = x.reshape(len(in_data)//(cfg.channels*cfg.bytes_per_channel),cfg.channels)
@@ -51,8 +50,8 @@ def main():
 
     wfi.close()
     wfo.close()
-    end = time.clock_gettime_ns(0)
-    print("fake real time finished in", (end - start)/10**9, "seconds")
+    end = time.perf_counter()
+    print("fake real time finished in", (end - start), "seconds")
     
 if __name__ == "__main__":
     main()
