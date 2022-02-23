@@ -1,23 +1,30 @@
+import cython
 import numpy as np; cimport numpy as np; np.import_array()
 import math
-import threading, queue
-import cython
-
-# ITYPE = np.int16  # int type
-# ctypedef np.int16_t ITYPE_t
-# FTYPE = np.double;   # float type
-# ctypedef np.double_t FTYPE_t
-# @cython.boundscheck(False) # turn off bounds-checking for entire function
-# @cython.wraparound(False)  # turn off negative index wrapping for entire function
+# import threading, queue
 
 # user imports
 import config as cfg
-class Convolver:
+# numpy type defs
+ITYPE = np.int16  # int type
+ctypedef np.int16_t ITYPE_t
+FTYPE = np.double;   # float type
+ctypedef np.double_t FTYPE_t
+cdef class Convolver:
+    cdef short[:] filter_lengths, offsets
+    cdef double[:] convolution_buffer
+    cdef double complex[:] filter_fft
+    cdef int[:] filter_indices_fft
+    cdef int number_of_filters, longest_filter, count, count_max, buffer
+    cdef short[:, ::1] previous_buffers
+    cdef bint realtime 
+    # cdef object convolution_queue
     def __init__(self, impulse, realtime=False):
+        self.buffer = cfg.buffer
         self.set_impulse(impulse)
         self.realtime=realtime
-        self.convolution_queue = queue.PriorityQueue()
-        threading.Thread(target=self.convolution_worker, daemon=True).start()
+        # self.convolution_queue = queue.PriorityQueue()
+        # threading.Thread(target=self.convolution_worker, daemon=True).start()
         pass
     
     # this function does the necessary work in order to get the impulse ready for use
@@ -26,7 +33,7 @@ class Convolver:
         
         height = cfg.height
         n_cap = cfg.n_cap;
-        (filter_lengths, filter_indices, offsets, convolution_buffer_length) = self.partition_filter(math.ceil(impulse.shape[0]/cfg.buffer), height, n_cap)
+        (filter_lengths, filter_indices, offsets, convolution_buffer_length) = self.partition_filter(math.ceil(impulse.shape[0]/self.buffer), height, n_cap)
         (filter_fft, filter_indices_fft) = self.compute_filter_fft(impulse, filter_lengths, filter_indices)
         
         self.filter_lengths = filter_lengths
@@ -34,8 +41,9 @@ class Convolver:
         self.filter_fft = filter_fft
         self.filter_indices_fft = filter_indices_fft
         self.number_of_filters = filter_lengths.size
-        self.previous_buffers = np.zeros((filter_lengths[-1], cfg.buffer), dtype=np.int16)
-        self.convolution_buffer = np.zeros((convolution_buffer_length*cfg.buffer, 1), dtype=np.double)
+        self.longest_filter = filter_lengths[filter_lengths.shape[0] - 1]
+        self.previous_buffers = np.zeros((filter_lengths[-1], self.buffer), dtype=np.int16)
+        self.convolution_buffer = np.zeros(convolution_buffer_length*self.buffer, dtype=np.double)
         self.count = 0
         self.count_max = convolution_buffer_length
     
@@ -50,7 +58,7 @@ class Convolver:
         space_left = -filter_length
         filter_lengths = np.zeros(filter_length, dtype=np.int16)
         filter_indices = np.zeros(filter_length, dtype=np.int32)
-        offsets = np.zeros(filter_length, dtype=np.int32)
+        offsets = np.zeros(filter_length, dtype=np.int16)
         
         i = 0 # index
         n = 0 # represents a power of 2 i.e. 2^n
@@ -58,7 +66,7 @@ class Convolver:
         
         while space_left < 0:
             filter_lengths[i] = 2**n
-            filter_indices[i + 1] = filter_lengths[i]*cfg.buffer + filter_indices[i] 
+            filter_indices[i + 1] = filter_lengths[i]*self.buffer + filter_indices[i] 
             space_left = space_left + filter_lengths[i]
             
             if filter_lengths[i]==prev_filter_length:
@@ -81,101 +89,106 @@ class Convolver:
     def compute_filter_fft(self, impulse, filter_lengths, filter_indices):
         # add zeros so that the sum of partitioned impulses 
         # and the impulse are the same length
-        space_left = np.sum(filter_lengths) - math.ceil(impulse.shape[0]/cfg.buffer)
+        space_left = np.sum(filter_lengths) - math.ceil(impulse.shape[0]/self.buffer)
                                                         
-        zeros_to_add = (space_left + 1)*cfg.buffer - impulse.shape[0]%cfg.buffer
-        impulse = np.append(impulse, np.zeros(zeros_to_add, dtype=np.int16)).reshape(-1, 1)
+        zeros_to_add = (space_left + 1)*self.buffer - impulse.shape[0]%self.buffer
+        impulse = np.append(impulse, np.zeros(zeros_to_add, dtype=np.int16))
         
         #compute fft of partitioned impulses
-        filter_fft = np.zeros((impulse.shape[0] + filter_lengths.shape[0], impulse.shape[1]), dtype=np.cdouble)
+        filter_fft = np.zeros(impulse.shape[0] + filter_lengths.shape[0], dtype=np.cdouble)
         filter_indices_fft_test = filter_indices*2
         filter_indices_fft = np.zeros(filter_indices.shape[0], dtype=np.int32)
         for j in range(0, filter_lengths.shape[0]):
-            n = 2*filter_lengths[j]*cfg.buffer
+            n = 2*filter_lengths[j]*self.buffer
             filter_indices_fft[j+1] = filter_indices_fft[j] + n//2 + 1
-            part_of_impulse = impulse[filter_indices[j]:filter_indices[j+1], :]
-            part_of_filter_fft = np.fft.rfft(part_of_impulse, n, axis = 0)
-            filter_fft[filter_indices_fft[j]:filter_indices_fft[j+1], :] = part_of_filter_fft
-        return filter_fft.reshape(-1, 1), filter_indices_fft
+            part_of_impulse = impulse[filter_indices[j]:filter_indices[j+1]]
+            part_of_filter_fft = np.fft.rfft(part_of_impulse, n)
+            filter_fft[filter_indices_fft[j]:filter_indices_fft[j+1]] = part_of_filter_fft
+        return filter_fft, filter_indices_fft
     
-    def convolve(self, audio_in):
+    def convolve(self, short[:] audio_in):
+        cdef short[:] audio_to_filter, audio_out
+        cdef double complex[:] audio_to_filter_fft
+        cdef int buffer_pos = self.count%self.longest_filter
         # save audio sample
-        self.previous_buffers[self.count%self.filter_lengths[-1], :] = audio_in
+        self.previous_buffers[buffer_pos, :] = audio_in
         for i in range(0, self.number_of_filters):
             if (self.count + 1)%self.filter_lengths[i] != 0: break
             elif (i==0)|(self.filter_lengths[i]!=self.filter_lengths[i-1]):
                 audio_to_filter = self.get_n_previous_buffers(self.filter_lengths[i])
-                audio_to_filter_fft = np.fft.rfft(audio_to_filter, 2*self.filter_lengths[i]*cfg.buffer, axis=0)
-            self.convolution_queue.put((i, audio_to_filter_fft))
+                audio_to_filter_fft = np.fft.rfft(audio_to_filter, 2*self.filter_lengths[i]*self.buffer)
+            self.add_to_convolution_buffer(self.convolve_with_filter_fft(np.asarray(audio_to_filter_fft), i), self.offsets[i])
         
-        if self.realtime == False:
-            self.convolution_queue.join()
+        # if self.realtime == False:
+        #     self.convolution_queue.join()
         
         audio_out = self.get_from_convolution_buffer()
         self.count = (self.count + 1)%self.count_max
         return audio_out
     
-    def convolution_worker(self):
-        while True:
-            (i, audio_to_filter_fft) = self.convolution_queue.get()
-            self.add_to_convolution_buffer(self.convolve_with_filter_fft(audio_to_filter_fft, i), self.offsets[i])
-            self.convolution_queue.task_done()
+    # cdef convolution_worker(self):
+    #     cdef int i 
+    #     cdef double[:] audio_to_filter_fft
+    #     while True:
+    #         (i, audio_to_filter_fft) = self.convolution_queue.get()
+    #         self.add_to_convolution_buffer(self.convolve_with_filter_fft(audio_to_filter_fft, i), self.offsets[i])
+    #         self.convolution_queue.task_done()
     
-    def convolve_and_add_to_conv_buffer(self, filter_index):
-        i = filter_index
-        if (i==0)|(self.filter_lengths[i]!=self.filter_lengths[i-1]):
-            audio_to_filter = self.get_n_previous_buffers(self.filter_lengths[i])
-            self.audio_to_filter_fft = np.fft.rfft(audio_to_filter, 2*self.filter_lengths[i]*cfg.buffer, axis=0)
-        self.add_to_convolution_buffer(self.convolve_with_filter_fft(self.audio_to_filter_fft, i), self.offsets[i])
-        pass
-    
-    def get_from_convolution_buffer(self):
-        index1 = (self.count)*cfg.buffer
-        index2 = (self.count + 1)*cfg.buffer
-        audio_out = np.round(0.5*self.convolution_buffer[index1:index2]/2**15)
+    cdef get_from_convolution_buffer(self):
+        cdef int index1 = (self.count)*self.buffer
+        cdef int index2 = (self.count + 1)*self.buffer
+        cdef np.ndarray[np.double_t] audio_out = np.round(0.5*np.asarray(self.convolution_buffer[index1:index2])/2**15)
         self.convolution_buffer[index1:index2] = 0
         return audio_out.astype(np.int16)
     
-    def add_to_convolution_buffer(self, audio_in, offset):
-        index1 = ((self.count + offset)%self.count_max)*cfg.buffer
+    cdef add_to_convolution_buffer(self, double[:] audio_in, int offset):
+        cdef int index1, index2, diff1, diff2
+        # assigning to a typed memory view like array[index1:index2] is only possible 
+        # if there is only one thing on the right side of the equals sign
+        # i.e. array[index1:index2] = temp
+        cdef double[:] temp 
+        index1 = ((self.count + offset)%self.count_max)*self.buffer
         index2 = index1 + audio_in.shape[0]
-        audio_in.shape = (-1, 1)
         if index2 > self.convolution_buffer.shape[0]:
             diff1 = self.convolution_buffer.shape[0] - index1
             diff2 = audio_in.shape[0] - diff1
-            self.convolution_buffer[index1:index1 + diff1, :] += audio_in[0:diff1, :]
-            self.convolution_buffer[0:diff2, :] += audio_in[diff1:diff1 + diff2, :]
+            temp = np.asarray(self.convolution_buffer[index1:index1 + diff1]) + np.asarray(audio_in[0:diff1])
+            self.convolution_buffer[index1:index1 + diff1] = temp
+            temp = np.asarray(self.convolution_buffer[0:diff2]) + np.asarray(audio_in[diff1:diff1 + diff2])
+            self.convolution_buffer[0:diff2] = temp
         else:
-            self.convolution_buffer[index1:index2, :] += audio_in
+            temp = np.asarray(self.convolution_buffer[index1:index2]) + np.asarray(audio_in)
+            self.convolution_buffer[index1:index2] = temp
         
-    def convolve_with_filter_fft(self, audio_to_filter_fft, filter_index):
-        filter_fft = self.get_filter_fft(filter_index)
-        audio_out_fft = filter_fft*audio_to_filter_fft
-        audio_out = np.fft.irfft(audio_out_fft, axis=0)
-        return audio_out.real
+    cdef convolve_with_filter_fft(self, np.ndarray[np.cdouble_t] audio_to_filter_fft, int filter_index):
+        cdef np.ndarray[np.cdouble_t] filter_fft = np.asarray(self.get_filter_fft(filter_index))
+        cdef np.ndarray[np.cdouble_t] audio_out_fft = filter_fft*audio_to_filter_fft
+        cdef double[:] audio_out = np.fft.irfft(audio_out_fft)
+        return audio_out
     
-    def get_n_previous_buffers(self, n):
-        count_pb = self.count%self.filter_lengths[-1]
-        index1 = count_pb + 1 - n
-        index2 = count_pb + 1        
+    cdef get_n_previous_buffers(self, n):
+        cdef int count_pb = self.count%self.longest_filter
+        cdef int index1 = count_pb + 1 - n
+        cdef int index2 = count_pb + 1        
         if index1 < 0:
             index1 = index1 + self.previous_buffers.shape[0]
             diff1 = self.previous_buffers.shape[0] - index1
             diff2 = n - diff1
-            n_previous_samples = np.zeros((n, cfg.buffer), dtype=np.int16)
+            n_previous_samples = np.zeros((n, self.buffer), dtype=np.int16)
             n_previous_samples[0:diff1, :] = self.previous_buffers[index1:index1 + diff1, :]
             n_previous_samples[diff1:diff1 + diff2, :] = self.previous_buffers[0:diff2, :]
         else:
             n_previous_samples = self.previous_buffers[index1:index2, :]
-        n_previous_samples.shape = (-1, 1)
-        return n_previous_samples
+        n_previous_samples = np.asarray(n_previous_samples).reshape(-1,1)
+        return n_previous_samples[:, 0]
     
-    def get_filter_fft(self, filter_index):
+    cdef get_filter_fft(self, int filter_index):
         index1 = self.filter_indices_fft[filter_index]
         index2 = self.filter_indices_fft[filter_index + 1]
         return self.filter_fft[index1:index2]
     
-class Convolver2():
+cdef class Convolver2():
+    cdef object channel1, channel2
     def __init__(self, impulse_file):
         impulse = self.import_from_wave(impulse_file)
         self.set_impulse(impulse)
@@ -185,10 +198,11 @@ class Convolver2():
         self.channel2 = Convolver(impulse[:, 1])
         
     def convolve(self, audio_in):
+        cdef short[:] channel1_out, channel2_out
+        cdef np.ndarray[ITYPE_t, ndim=2] audio_out
         channel1_out = self.channel1.convolve(audio_in[:, 0])
         channel2_out = self.channel2.convolve(audio_in[:, 1])
-        # [:,:,0] is necessary because np.stack makes a 3d array
-        audio_out = np.stack((channel1_out, channel2_out), axis=1)[:, :, 0] 
+        audio_out = np.stack((channel1_out, channel2_out), axis=1)
         return audio_out
     
     def import_from_wave(self, wave_file):
