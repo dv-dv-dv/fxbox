@@ -19,6 +19,4 @@ post = 0.5
 
 # convolver engine variables
 # do not touch, probably
-n_step = 3 # any number greater than 1, dont set this higher than 3, probably
-height = 10 # any number greater than 1 and at least 2^n_step - 1
-n_cap = 99999 # highest n value allowed
+n_step = 2 # any number greater than 1, dont set this higher than 3, probably

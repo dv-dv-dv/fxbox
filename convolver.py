@@ -10,12 +10,10 @@ class Convolver:
     
     # this function does the necessary work in order to get the impulse ready for use
     def set_impulse(self, impulse):
-        # get impulse from wav file
-        
-        height = cfg.height
-        n_cap = cfg.n_cap;
-        n_step = cfg.n_step
         filter_length = math.ceil(impulse.shape[0]/cfg.buffer)
+        n_step = cfg.n_step
+        height = 2**n_step
+        n_cap = int(math.log2(filter_length/8)) # prevents from padding with too many zeros
         (filter_lengths, filter_indices, offsets, convolution_buffer_length) = self.partition_filter(filter_length, height, n_cap, n_step)
         (filter_fft, filter_indices_fft) = self.compute_filter_fft(impulse, filter_lengths, filter_indices)
         
@@ -44,21 +42,20 @@ class Convolver:
         filter_lengths = np.zeros(filter_length, dtype=np.int16)
         filter_indices = np.zeros(filter_length, dtype=np.int32)
         offsets = np.zeros(filter_length, dtype=np.int32)
-        
-        i = 0 # index
-        n = 0 # represents a power of 2 i.e. 2^n
-        prev_filter_length = -1
-        
+        i = 0
+        n = 0 # nth power of 2
+        x = 0
+        y = 0
+        prev_filter_length = 0
         while space_left < 0:
             filter_lengths[i] = 2**n
             filter_indices[i + 1] = filter_lengths[i]*cfg.buffer + filter_indices[i] 
             space_left = space_left + filter_lengths[i]
             
-            if filter_lengths[i]==prev_filter_length:
-                offsets[i + 1] = offsets[i] + filter_lengths[i]
-            else:
-                offsets[i + 1] = offsets[i]
-                
+            y = y + prev_filter_length
+            if filter_lengths[i]!=prev_filter_length:
+                x = x + filter_lengths[i] - prev_filter_length
+            offsets[i] = y - x + 1
             prev_filter_length = filter_lengths[i]
             n = n + n_step*math.floor((i%height + 1)/height)
             if n>n_cap: n=n_cap
@@ -67,7 +64,7 @@ class Convolver:
         # truncate arrays
         filter_lengths = filter_lengths[0:i]
         filter_indices = filter_indices[0:i+1]
-        offsets = offsets[1:i+1]
+        offsets = offsets[0:i]
         convolution_buffer_length = math.ceil(np.sum(filter_lengths)/filter_lengths[-1])*filter_lengths[-1]
         return filter_lengths, filter_indices, offsets, convolution_buffer_length
         
@@ -107,7 +104,7 @@ class Convolver:
     def get_from_convolution_buffer(self):
         index1 = (self.count)*cfg.buffer
         index2 = (self.count + 1)*cfg.buffer
-        audio_out = np.round(0.5*self.convolution_buffer[index1:index2]/2**15)
+        audio_out = 0.5*self.convolution_buffer[index1:index2]/2**15
         self.convolution_buffer[index1:index2] = 0
         return audio_out.astype(np.int16)
     
@@ -161,7 +158,6 @@ class Convolver2():
     def convolve(self, audio_in):
         channel1_out = self.channel1.convolve(audio_in[:, 0])
         channel2_out = self.channel2.convolve(audio_in[:, 1])
-        # [:,:,0] is necessary because np.stack makes a 3d array
         audio_out = np.stack((channel1_out, channel2_out), axis=1) 
         return audio_out
     
