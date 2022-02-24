@@ -1,7 +1,7 @@
 import numpy as np
 import math
 # user imports
-import config as cfg\
+import config as cfg
 
 class Convolver:
     def __init__(self, impulse, realtime=False):
@@ -14,7 +14,9 @@ class Convolver:
         
         height = cfg.height
         n_cap = cfg.n_cap;
-        (filter_lengths, filter_indices, offsets, convolution_buffer_length) = self.partition_filter(math.ceil(impulse.shape[0]/cfg.buffer), height, n_cap)
+        n_step = cfg.n_step
+        filter_length = math.ceil(impulse.shape[0]/cfg.buffer)
+        (filter_lengths, filter_indices, offsets, convolution_buffer_length) = self.partition_filter(filter_length, height, n_cap, n_step)
         (filter_fft, filter_indices_fft) = self.compute_filter_fft(impulse, filter_lengths, filter_indices)
         
         self.filter_lengths = filter_lengths
@@ -35,7 +37,9 @@ class Convolver:
         wfi.close()
         return np.frombuffer(wave_bytes, dtype=np.int16).reshape(-1,2)
     
-    def partition_filter(self, filter_length, height, n_cap):
+    def partition_filter(self, filter_length, height, n_cap, n_step):
+        if height < 2**n_step - 1:
+            height = 2**n_step - 1
         space_left = -filter_length
         filter_lengths = np.zeros(filter_length, dtype=np.int16)
         filter_indices = np.zeros(filter_length, dtype=np.int32)
@@ -56,7 +60,7 @@ class Convolver:
                 offsets[i + 1] = offsets[i]
                 
             prev_filter_length = filter_lengths[i]
-            n = n + math.floor((i%height + 1)/height)
+            n = n + n_step*math.floor((i%height + 1)/height)
             if n>n_cap: n=n_cap
             i = i + 1
     
