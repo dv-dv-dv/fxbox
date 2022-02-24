@@ -8,12 +8,6 @@ class Convolver:
     def __init__(self, impulse, realtime=False):
         self.set_impulse(impulse)
         self.realtime=realtime
-        self.cq_high = mp.JoinableQueue()
-        self.cq_mid = mp.JoinableQueue()
-        self.cq_low = mp.JoinableQueue()
-        mp.Process(target=self.convolution_worker_high).start()
-        mp.Process(target=self.convolution_worker_mid).start()
-        mp.Process(target=self.convolution_worker_low).start()
     
     # this function does the necessary work in order to get the impulse ready for use
     def set_impulse(self, impulse):
@@ -100,48 +94,12 @@ class Convolver:
             if (self.count + 1)%self.filter_lengths[i] != 0: break
             elif (i==0)|(self.filter_lengths[i]!=self.filter_lengths[i-1]):
                 audio_to_filter = self.get_n_previous_buffers(self.filter_lengths[i])
-            if self.filter_lengths[i] == 1:
-                self.cq_high.put((i, audio_to_filter))
-            elif i < self.cq_split:
-                self.cq_mid.put((i, audio_to_filter))
-            else:
-                self.cq_low.put((i, audio_to_filter))
-        
-        if self.realtime == False:
-            self.cq_high.join()
-            self.cq_mid.join()
-            self.cq_low.join()
+                audio_to_filter_fft = np.fft.rfft(audio_to_filter, 2*self.filter_lengths[i]*cfg.buffer)
+            self.add_to_convolution_buffer(self.convolve_with_filter_fft(audio_to_filter_fft, i), self.offsets[i])
         
         audio_out = self.get_from_convolution_buffer()
         self.count = (self.count + 1)%self.count_max
         return audio_out
-    
-    def convolution_worker_high(self):
-        audio_to_filter_fft = np.zeros(cfg.buffer, dtype=np.int16)
-        while True:
-            (i, audio_to_filter) = self.cq_high.get()
-            if (i==0)|(self.filter_lengths[i]!=self.filter_lengths[i-1]):
-                audio_to_filter_fft = np.fft.rfft(audio_to_filter, 2*self.filter_lengths[i]*cfg.buffer)
-            self.add_to_convolution_buffer(self.convolve_with_filter_fft(audio_to_filter_fft, i), self.offsets[i])
-            self.cq_high.task_done()
-    
-    def convolution_worker_mid(self):
-        audio_to_filter_fft = np.zeros(cfg.buffer, dtype=np.int16)
-        while True:
-            (i, audio_to_filter) = self.cq_mid.get()
-            if (i==0)|(self.filter_lengths[i]!=self.filter_lengths[i-1]):
-                audio_to_filter_fft = np.fft.rfft(audio_to_filter, 2*self.filter_lengths[i]*cfg.buffer)
-            self.add_to_convolution_buffer(self.convolve_with_filter_fft(audio_to_filter_fft, i), self.offsets[i])
-            self.cq_mid.task_done()
-    
-    def convolution_worker_low(self):
-        audio_to_filter_fft = np.zeros(cfg.buffer, dtype=np.int16)
-        while True:
-            (i, audio_to_filter) = self.cq_low.get()
-            if (i==0)|(self.filter_lengths[i]!=self.filter_lengths[i-1]):
-                audio_to_filter_fft = np.fft.rfft(audio_to_filter, 2*self.filter_lengths[i]*cfg.buffer)
-            self.add_to_convolution_buffer(self.convolve_with_filter_fft(audio_to_filter_fft, i), self.offsets[i])
-            self.cq_low.task_done()
     
     def get_from_convolution_buffer(self):
         index1 = (self.count)*cfg.buffer
