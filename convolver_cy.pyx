@@ -1,7 +1,5 @@
 import cython
 import numpy as np; cimport numpy as np; np.import_array()
-import multiprocessing
-# import threading, queue
 # user imports
 import config as cfg
 # numpy type defs
@@ -26,8 +24,6 @@ cdef class Convolver:
         self.buffer = cfg.buffer
         self.set_impulse(impulse)
         self.realtime=realtime
-        self.convolution_queue = multiprocessing.Queue()
-        p = multiprocessing.Process(target=self.convolution_worker).start()
     
     # this function does the necessary work in order to get the impulse ready for use
     cdef set_impulse(self, impulse):
@@ -121,22 +117,11 @@ cdef class Convolver:
             elif (i==0)|(self.filter_lengths[i]!=self.filter_lengths[i-1]):
                 audio_to_filter = self.get_n_previous_buffers(self.filter_lengths[i])
                 audio_to_filter_fft = np.fft.rfft(audio_to_filter, 2*self.filter_lengths[i]*self.buffer)
-            self.convolution_queue.put((i, audio_to_filter_fft))
-         
-        if self.realtime == False:
-            self.convolution_queue.join()
+            self.add_to_convolution_buffer(self.convolve_with_filter_fft(audio_to_filter_fft, i), self.offsets[i])
          
         audio_out = self.get_from_convolution_buffer()
         self.count = (self.count + 1)%self.count_max
         return audio_out
-    
-    def convolution_worker(self):
-        cdef int i 
-        cdef double complex[:] audio_to_filter_fft
-        while True:
-            (i, audio_to_filter_fft) = self.convolution_queue.get()
-            self.add_to_convolution_buffer(self.convolve_with_filter_fft(audio_to_filter_fft, i), self.offsets[i])
-            self.convolution_queue.task_done()
     
     cdef get_from_convolution_buffer(self):
         cdef int index1 = (self.count)*self.buffer

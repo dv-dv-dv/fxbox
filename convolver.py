@@ -1,8 +1,7 @@
 import numpy as np
 import math
 # user imports
-import config as cfg
-import multiprocessing as mp
+import config as cfg\
 
 class Convolver:
     def __init__(self, impulse, realtime=False):
