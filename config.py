@@ -20,3 +20,4 @@ post = 0.5
 # convolver engine variables
 # do not touch, probably
 n_step = 2 # any number greater than 1, dont set this higher than 3, probably
+filter_size_cap = 8192
