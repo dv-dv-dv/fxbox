@@ -5,10 +5,10 @@ def main():
     
     ##user imports
     import config as cfg
-    import compressor_cy as compressor
+    # import compressor_cy as compressor
     # import convolver_cy as convolver
     import convolver
-    # import compressor
+    import compressor
     
     wfi = wave.open('sjvoicesamp16.wav', 'rb')
     wfo = wave.open('sjvoicesamp16_pyout.wav', 'wb')
@@ -20,7 +20,7 @@ def main():
     out_data = B'\x00\x00\x00'
     in_data = wfi.readframes(cfg.buffer)
     comp = compressor.Compressor2()
-    conv = convolver.Convolver2('impulses/IMPSpring04.wav')
+    conv = convolver.Convolver('impulses/IMPSpring04.wav')
     count = 0
     
     print("buffer size is", cfg.buffer)
@@ -52,7 +52,6 @@ def main():
     wfo.close()
     end = time.perf_counter()
     print("fake real time finished in", (end - start), "seconds")
-    conv.print_fft_usage()
     
 if __name__ == "__main__":
     main()
