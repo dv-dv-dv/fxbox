@@ -1,5 +1,6 @@
 import numpy as np
 import math
+import pyfftw
 from numpy import fft
 # user imports
 import config as cfg
@@ -16,6 +17,9 @@ class Convolver:
         self.filter_use  = np.zeros(self.blocks_needed.shape[0])
         self.no_rfft = 0
         self.no_irfft = 0
+        
+        import wisdom_tools
+        pyfftw.import_wisdom(wisdom_tools.get_wisdom())
     
     # this function does the necessary work in order to get the impulse ready for use
     def set_impulse(self, impulse):
@@ -28,13 +32,44 @@ class Convolver:
         self.filter_fft = filter_fft
         self.filter_indices_fft = filter_indices_fft
 
-    
-    def import_from_wave(self, wave_file):
+    def import_from_wave(self, wave_file, trim=False, force_trim=False):
+        import os.path
         import wave
-        wfi = wave.open(wave_file, 'rb')
-        wave_bytes = wfi.readframes(wfi.getnframes())
-        wfi.close()
-        return np.frombuffer(wave_bytes, dtype=np.int16).reshape(-1,2)
+        if (trim==True) & (force_trim==False) & (os.path.exists(wave_file+"_trimmed.wav")):
+            if(os.path.exists(wave_file+"_trimmed.wav")):
+                wfi = wave.open(wave_file+"_trimmed.wav", 'rb')
+                wave_bytes = wfi.readframes(wfi.getnframes())
+                wfi.close()
+                impulse = np.frombuffer(wave_bytes, dtype=np.int16).reshape(-1,2)
+        else:
+            import wave
+            wfi = wave.open(wave_file+".wav", 'rb')
+            wave_bytes = wfi.readframes(wfi.getnframes())
+            wfi.close()
+            impulse = np.frombuffer(wave_bytes, dtype=np.int16).reshape(-1,2)
+            if(trim ==True):
+                window = 2000
+                impulse_abs = np.abs(impulse[:, 0]).astype(np.double) + np.abs(impulse[:, 1]).astype(np.double);
+                intensity = np.zeros(impulse.shape[0] - window)
+                
+                for i in range(intensity.shape[0]):
+                    intensity[i] = np.sqrt(np.sum(impulse_abs[i:i+window]**2))
+                    
+                trigger = np.max(intensity)/100
+                
+                for i in range(intensity.shape[0]):
+                    k = intensity.shape[0] - i - 1
+                    if intensity[k] > trigger:
+                        cutoff_point = k
+                        break
+                impulse = impulse[0:cutoff_point, :]
+                import wave
+                wfo = wave.open(wave_file+"_trimmed.wav", 'wb')
+                wfo.setnchannels(2)
+                wfo.setsampwidth(2)
+                wfo.setframerate(44100)
+                wfo.writeframes(impulse.tobytes())
+        return impulse
     
     def partition_filter(self, filter_length, height, n_cap, n_step):
         if height < 2**n_step - 1:
@@ -63,7 +98,8 @@ class Convolver:
         
         filter_indices = filter_indices[0:i+1]
         self.blocks_needed = blocks_needed[0:i]
-        self.filter_lengths = blocks_needed.astype(np.int32)*cfg.buffer*2
+        self.filter_sizes = self.blocks_needed.astype(np.int32)*cfg.buffer*2
+        self.block_sizes = self.blocks_needed.astype(np.int32)*cfg.buffer
         self.offsets = offsets[0:i]
         self.number_of_filters = self.blocks_needed.shape[0]
         self.convolution_buffer_length = math.ceil(np.sum(self.blocks_needed)/self.blocks_needed[-1])*self.blocks_needed[-1]
@@ -95,8 +131,13 @@ class Convolver:
         for i in range(0, self.number_of_filters):
             if (self.count + 1)%self.blocks_needed[i] != 0: break
             elif (i==0)|(self.blocks_needed[i]!=self.blocks_needed[i-1]):
-                audio_to_filter = self.get_n_previous_buffers(self.blocks_needed[i])
-                audio_to_filter_fft = fft.rfft(audio_to_filter, self.filter_lengths[i], axis=0)
+                # prepare fft
+                audio_to_filter = pyfftw.empty_aligned((self.filter_sizes[i], self.channels), dtype='float64')
+                audio_to_filter_fft = pyfftw.empty_aligned((self.filter_sizes[i]//2 + 1, self.channels), dtype='complex128')
+                frfft = pyfftw.FFTW(audio_to_filter, audio_to_filter_fft, axes=(0,), flags=('FFTW_WISDOM_ONLY',), threads=1)
+                audio_to_filter[:, :] = 0
+                audio_to_filter[0:self.block_sizes[i], :] = self.get_n_previous_buffers(self.blocks_needed[i]).astype(np.double)
+                frfft()
                 self.no_rfft += 1
             self.filter_use[i] += 1
             self.add_to_convolution_buffer(self.convolve_with_filter_fft(audio_to_filter_fft, i), self.offsets[i])
@@ -123,8 +164,16 @@ class Convolver:
         else:
             self.convolution_buffer[index1:index2, :] += audio_in
         
-    def convolve_with_filter_fft(self, audio_to_filter_fft, filter_index):
-        filter_fft = self.get_filter_fft(filter_index)
+    def convolve_with_filter_fft(self, audio_to_filter_fft, i):
+        
+        # audio_to_filter_fft2 = pyfftw.empty_aligned((self.filter_sizes[i]//2 + 1, self.channels), dtype='complex128')
+        # audio_out = pyfftw.empty_aligned((self.filter_sizes[i], self.channels), dtype='float64')
+        # frfft = pyfftw.FFTW(audio_to_filter_fft2, audio_out, axes=(0,), flags=('FFTW_WISDOM_ONLY',), threads=1)
+        # audio_to_filter_fft2[:, :] = 0
+        # audio_to_filter_fft2[:] = audio_to_filter_fft
+        # frfft()
+        
+        filter_fft = self.get_filter_fft(i)
         audio_out_fft = filter_fft*audio_to_filter_fft
         audio_out = fft.irfft(audio_out_fft, axis=0)
         self.no_irfft += 1
@@ -145,7 +194,8 @@ class Convolver:
             n_previous_samples = self.previous_buffers[index1:index2, :]
         return n_previous_samples
     
-    def get_filter_fft(self, filter_index):
-        index1 = self.filter_indices_fft[filter_index]
-        index2 = self.filter_indices_fft[filter_index + 1]
+    def get_filter_fft(self, filter_index, stack=1):
+        if stack==1:
+            index1 = self.filter_indices_fft[filter_index]
+            index2 = self.filter_indices_fft[filter_index + 1]
         return self.filter_fft[index1:index2, :]
