@@ -101,7 +101,7 @@ class Convolver:
         self.blocks_needed = blocks_needed[0:i]
         self.filter_sizes = self.blocks_needed.astype(np.int32)*cfg.buffer*2
         self.block_sizes = self.blocks_needed.astype(np.int32)*cfg.buffer
-        self.offsets = offsets[0:i]
+        self.offsets = offsets[0:i] + 2**cfg.delay_amount-1
         self.number_of_filters = self.blocks_needed.shape[0]
         self.convolution_buffer_length = math.ceil(np.sum(self.blocks_needed)/self.blocks_needed[-1])*self.blocks_needed[-1]
         return filter_indices
@@ -138,7 +138,7 @@ class Convolver:
             self.filter_use[i] += 1
             self.add_to_convolution_buffer(self.convolve_with_filter_fft(audio_to_filter_fft, i), self.offsets[i])
 
-        audio_out = self.get_from_convolution_buffer()
+        audio_out = self.get_from_convolution_buffer() + audio_in
         self.count = (self.count + 1)%self.convolution_buffer_length
         return audio_out
 
