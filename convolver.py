@@ -18,8 +18,8 @@ class Convolver:
         self.no_rfft = 0
         self.no_irfft = 0
         
-        import wisdom_tools
-        pyfftw.import_wisdom(wisdom_tools.get_wisdom())
+        # import wisdom_tools
+        # pyfftw.import_wisdom(wisdom_tools.get_wisdom())
     
     # this function does the necessary work in order to get the impulse ready for use
     def set_impulse(self, impulse):
@@ -32,7 +32,7 @@ class Convolver:
         self.filter_fft = filter_fft
         self.filter_indices_fft = filter_indices_fft
 
-    def import_from_wave(self, wave_file, trim=False, force_trim=False):
+    def import_from_wave(self, wave_file, trim=True, force_trim=False):
         import os.path
         import wave
         if (trim==True) & (force_trim==False) & (os.path.exists(wave_file+"_trimmed.wav")):
@@ -48,19 +48,20 @@ class Convolver:
             wfi.close()
             impulse = np.frombuffer(wave_bytes, dtype=np.int16).reshape(-1,2)
             if(trim ==True):
-                window = 2000
+                window = 100
                 impulse_abs = np.abs(impulse[:, 0]).astype(np.double) + np.abs(impulse[:, 1]).astype(np.double);
                 intensity = np.zeros(impulse.shape[0] - window)
                 
                 for i in range(intensity.shape[0]):
                     intensity[i] = np.sqrt(np.sum(impulse_abs[i:i+window]**2))
                     
-                trigger = np.max(intensity)/100
+                trigger = np.max(intensity)/50
                 
                 for i in range(intensity.shape[0]):
                     k = intensity.shape[0] - i - 1
                     if intensity[k] > trigger:
-                        cutoff_point = k
+                        cutoff_point = k+window
+                        print(cutoff_point)
                         break
                 impulse = impulse[0:cutoff_point, :]
                 import wave
@@ -79,7 +80,7 @@ class Convolver:
         filter_indices = np.zeros(filter_length, dtype=np.int32)
         offsets = np.zeros(filter_length, dtype=np.int32)
         i = 0
-        n = 0 # nth power of 2
+        n = cfg.delay_amount # nth power of 2
         x = 0
         y = 0
         prev_filter_length = 0
@@ -131,28 +132,23 @@ class Convolver:
         for i in range(0, self.number_of_filters):
             if (self.count + 1)%self.blocks_needed[i] != 0: break
             elif (i==0)|(self.blocks_needed[i]!=self.blocks_needed[i-1]):
-                # prepare fft
-                audio_to_filter = pyfftw.empty_aligned((self.filter_sizes[i], self.channels), dtype='float64')
-                audio_to_filter_fft = pyfftw.empty_aligned((self.filter_sizes[i]//2 + 1, self.channels), dtype='complex128')
-                frfft = pyfftw.FFTW(audio_to_filter, audio_to_filter_fft, axes=(0,), flags=('FFTW_WISDOM_ONLY',), threads=1)
-                audio_to_filter[:, :] = 0
-                audio_to_filter[0:self.block_sizes[i], :] = self.get_n_previous_buffers(self.blocks_needed[i]).astype(np.double)
-                frfft()
+                audio_to_filter = self.get_n_previous_buffers(self.blocks_needed[i])
+                audio_to_filter_fft = fft.rfft(audio_to_filter, self.filter_sizes[i], axis=0)
                 self.no_rfft += 1
             self.filter_use[i] += 1
             self.add_to_convolution_buffer(self.convolve_with_filter_fft(audio_to_filter_fft, i), self.offsets[i])
-        
+
         audio_out = self.get_from_convolution_buffer()
         self.count = (self.count + 1)%self.convolution_buffer_length
         return audio_out
-    
+
     def get_from_convolution_buffer(self):
         index1 = (self.count)*cfg.buffer
         index2 = (self.count + 1)*cfg.buffer
         audio_out = 0.5*self.convolution_buffer[index1:index2, :]/2**15
         self.convolution_buffer[index1:index2, :] = 0
         return audio_out.astype(np.int16)
-    
+
     def add_to_convolution_buffer(self, audio_in, offset):
         index1 = ((self.count + offset)%self.convolution_buffer_length)*cfg.buffer
         index2 = index1 + audio_in.shape[0]
@@ -163,26 +159,18 @@ class Convolver:
             self.convolution_buffer[0:diff2, :] += audio_in[diff1:diff1 + diff2, :]
         else:
             self.convolution_buffer[index1:index2, :] += audio_in
-        
-    def convolve_with_filter_fft(self, audio_to_filter_fft, i):
-        
-        # audio_to_filter_fft2 = pyfftw.empty_aligned((self.filter_sizes[i]//2 + 1, self.channels), dtype='complex128')
-        # audio_out = pyfftw.empty_aligned((self.filter_sizes[i], self.channels), dtype='float64')
-        # frfft = pyfftw.FFTW(audio_to_filter_fft2, audio_out, axes=(0,), flags=('FFTW_WISDOM_ONLY',), threads=1)
-        # audio_to_filter_fft2[:, :] = 0
-        # audio_to_filter_fft2[:] = audio_to_filter_fft
-        # frfft()
-        
-        filter_fft = self.get_filter_fft(i)
+
+    def convolve_with_filter_fft(self, audio_to_filter_fft, filter_index):
+        filter_fft = self.get_filter_fft(filter_index)
         audio_out_fft = filter_fft*audio_to_filter_fft
         audio_out = fft.irfft(audio_out_fft, axis=0)
         self.no_irfft += 1
         return audio_out.real
-    
+
     def get_n_previous_buffers(self, n):
         count_pb = self.count%self.blocks_needed[-1]
-        index1 = (count_pb + 1 - n)*cfg.buffer   
-        index2 = (count_pb + 1)*cfg.buffer   
+        index1 = (count_pb + 1 - n)*cfg.buffer
+        index2 = (count_pb + 1)*cfg.buffer
         if index1 < 0:
             index1 = index1 + self.previous_buffers.shape[0]
             diff1 = self.previous_buffers.shape[0] - index1
@@ -193,9 +181,8 @@ class Convolver:
         else:
             n_previous_samples = self.previous_buffers[index1:index2, :]
         return n_previous_samples
-    
-    def get_filter_fft(self, filter_index, stack=1):
-        if stack==1:
-            index1 = self.filter_indices_fft[filter_index]
-            index2 = self.filter_indices_fft[filter_index + 1]
+
+    def get_filter_fft(self, filter_index):
+        index1 = self.filter_indices_fft[filter_index]
+        index2 = self.filter_indices_fft[filter_index + 1]
         return self.filter_fft[index1:index2, :]

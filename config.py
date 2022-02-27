@@ -20,4 +20,5 @@ post = 0.5
 # convolver engine variables
 # do not touch, probably
 n_step = 2 # any number greater than 1, dont set this higher than 3, probably
-filter_size_cap = 65536
+filter_size_cap = 32768
+delay_amount = 1 # dealys the convolution by n buffer counts, improves performance
