@@ -26,7 +26,8 @@ class Convolver:
         filter_length = math.ceil(impulse.shape[0]/cfg.buffer)
         n_step = cfg.n_step
         height = 2**n_step
-        n_cap = math.log2(cfg.filter_size_cap/cfg.buffer)
+        n_cap = math.floor(math.log2(cfg.filter_size_cap/cfg.buffer))
+        if(2**n_cap > filter_length/4): n_cap = math.floor(math.log2(filter_length/4))
         filter_indices = self.partition_filter(filter_length, height, n_cap, n_step)
         (filter_fft, filter_indices_fft) = self.compute_filter_fft(impulse, self.blocks_needed, filter_indices)
         self.filter_fft = filter_fft
