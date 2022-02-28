@@ -17,7 +17,7 @@ class Convolver:
         self.filter_use  = np.zeros(self.blocks_needed.shape[0])
         self.no_rfft = 0
         self.no_irfft = 0
-        self.convolution_queue = queue.PriorityQueue()
+        self.convolution_queue = queue.PriorityQueue(self.number_of_filters)
         
         self.work=False
         threading.Thread(target=self.convolution_worker, daemon=True).start()
@@ -115,6 +115,7 @@ class Convolver:
         self.test = np.argsort(self.offsets)
         self.number_of_filters = self.blocks_needed.shape[0]
         self.convolution_buffer_length = math.ceil(np.sum(self.blocks_needed)/self.blocks_needed[-1])*self.blocks_needed[-1]
+        print(self.blocks_needed)
         return filter_indices
     
     def compute_filter_fft(self, impulse, blocks_needed, filter_indices):
