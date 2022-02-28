@@ -23,7 +23,11 @@ class Convolver:
         threading.Thread(target=self.convolution_worker, daemon=True).start()
         # import wisdom_tools
         # pyfftw.import_wisdom(wisdom_tools.get_wisdom())
-    
+        
+    def print_fft_usage(self):
+        print("number of rfft:", self.no_rfft)
+        print("number of irfft:", self.no_irfft)
+        
     # this function does the necessary work in order to get the impulse ready for use
     def set_impulse(self, impulse):
         filter_length = math.ceil(impulse.shape[0]/cfg.buffer)
@@ -154,28 +158,57 @@ class Convolver:
         return audio_out
     
     def convolution_worker(self):
+        from dataclasses import dataclass
+        @dataclass
+        class spectra:
+            spectra: np.ndarray = np.zeros((1,1))
+            count: int = -1
+            blocks_needed: int = -1
+            
         blocks_needed = self.blocks_needed
+        unique_blocks = np.unique(blocks_needed)
         filter_sizes = self.filter_sizes
         filter_indices_fft = self.filter_indices_fft
-        offsets = self.offsets
         filter_fft = self.filter_fft
         prev_filter = -1
+        vspectra = np.vectorize(spectra)
+        spectras = vspectra(np.empty(unique_blocks.shape[0]))
+        unique_spectras = unique_blocks.shape[0]
+        
+        for i in range(unique_spectras):
+            spectras[i].blocks_needed = unique_blocks[i]
+            
         while True:
             while self.work==True:
+                spectra_needed = True
                 (offset, i, count) = self.convolution_queue.get()
-                if(i==1)|(blocks_needed[i]!=prev_filter):
+                if blocks_needed[i]==prev_filter:
                     audio_to_filter = self.get_n_previous_buffers(blocks_needed[i], count)
                     audio_to_filter_fft = fft.rfft(audio_to_filter, filter_sizes[i], axis=0)
+                else:
+                    for j in range(unique_spectras):
+                        if spectras[j].blocks_needed==blocks_needed[i]:
+                            index = j
+                            if(spectras[j].count==count):
+                                audio_to_filter_fft = spectras[j].spectra
+                                spectra_needed = False
+                    if(spectra_needed==True):
+                        audio_to_filter = self.get_n_previous_buffers(blocks_needed[i], count)
+                        audio_to_filter_fft = fft.rfft(audio_to_filter, filter_sizes[i], axis=0)
+                        spectras[index].spectra = audio_to_filter_fft
+                        spectras[index].count = count
+                        self.no_rfft += 1
+                
                 prev_filter = blocks_needed[i]
                 index1 = filter_indices_fft[i]
                 index2 = filter_indices_fft[i + 1]
                 filter_fft_part =  filter_fft[index1:index2, :]
                 audio_out_fft = filter_fft_part*audio_to_filter_fft
                 audio_out = fft.irfft(audio_out_fft, axis=0)
+                self.no_irfft += 1
                 audio_out = self.convolve_with_filter_fft(audio_to_filter_fft, i)
                 self.add_to_convolution_buffer(audio_out, offset, count)
                 self.convolution_queue.task_done()
-                print(filter_sizes[i])
             
     def get_from_convolution_buffer(self):
         index1 = (self.count)*cfg.buffer

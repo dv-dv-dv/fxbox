@@ -51,6 +51,7 @@ def main():
     wfi.close()
     wfo.close()
     end = time.perf_counter()
+    conv.print_fft_usage()
     print("fake real time finished in", (end - start), "seconds")
     
 if __name__ == "__main__":
