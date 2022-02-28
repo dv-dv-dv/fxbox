@@ -23,3 +23,6 @@ n_step = 1 # any number greater than 1, dont set this higher than 3, probably
 filter_size_cap = 16384
 delay_amount = 0 # delays the convolution by 2**n buffer counts, improves performance significantly
 height = 2**(n_step) 
+
+trim = False
+force_trim = False
