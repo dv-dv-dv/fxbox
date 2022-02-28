@@ -150,13 +150,24 @@ class Convolver:
         return audio_out
     
     def convolution_worker(self):
+        blocks_needed = self.blocks_needed
+        filter_sizes = self.filter_sizes
+        filter_indices_fft = self.filter_indices_fft
+        offsets = self.offsets
+        filter_fft = self.filter_fft
         while True:
             (i, count) = self.convolution_queue.get()
-            if(i==1)|(self.blocks_needed[i]!=self.blocks_needed[i-1]):
-                audio_to_filter = self.get_n_previous_buffers(self.blocks_needed[i], count)
-                audio_to_filter_fft = fft.rfft(audio_to_filter, self.filter_sizes[i], axis=0)
+            if(i==1)|(blocks_needed[i]!=blocks_needed[i-1]):
+                audio_to_filter = self.get_n_previous_buffers(blocks_needed[i], count)
+                audio_to_filter_fft = fft.rfft(audio_to_filter, filter_sizes[i], axis=0)
+                
+            index1 = filter_indices_fft[i]
+            index2 = filter_indices_fft[i + 1]
+            filter_fft_part =  filter_fft[index1:index2, :]
+            audio_out_fft = filter_fft_part*audio_to_filter_fft
+            audio_out = fft.irfft(audio_out_fft, axis=0)
             audio_out = self.convolve_with_filter_fft(audio_to_filter_fft, i)
-            self.add_to_convolution_buffer(audio_out, self.offsets[i], count)
+            self.add_to_convolution_buffer(audio_out, offsets[i], count)
             self.convolution_queue.task_done()
             
     def get_from_convolution_buffer(self):
