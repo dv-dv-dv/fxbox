@@ -1,7 +1,7 @@
 import numpy as np
 import math
-import pyfftw
 from numpy import fft
+import threading, queue
 # user imports
 import config as cfg
 
@@ -17,7 +17,9 @@ class Convolver:
         self.filter_use  = np.zeros(self.blocks_needed.shape[0])
         self.no_rfft = 0
         self.no_irfft = 0
-        
+        self.convolution_queue = queue.PriorityQueue()
+        if(realtime==False):
+            threading.Thread(target=self.convolution_worker, daemon=True).start()
         # import wisdom_tools
         # pyfftw.import_wisdom(wisdom_tools.get_wisdom())
     
@@ -29,11 +31,13 @@ class Convolver:
         n_cap = math.floor(math.log2(cfg.filter_size_cap/cfg.buffer))
         if(2**n_cap > filter_length/4): n_cap = math.floor(math.log2(filter_length/4))
         filter_indices = self.partition_filter(filter_length, height, n_cap, n_step)
-        (filter_fft, filter_indices_fft) = self.compute_filter_fft(impulse, self.blocks_needed, filter_indices)
+        (impulse, filter_fft, filter_indices_fft) = self.compute_filter_fft(impulse, self.blocks_needed, filter_indices)
         self.filter_fft = filter_fft
+        self.filter = impulse.astype(np.int32)
         self.filter_indices_fft = filter_indices_fft
+        self.filter_indices = filter_indices
 
-    def import_from_wave(self, wave_file, trim=True, force_trim=False):
+    def import_from_wave(self, wave_file, trim=False, force_trim=False):
         import os.path
         import wave
         if (trim==True) & (force_trim==False) & (os.path.exists(wave_file+"_trimmed.wav")):
@@ -124,7 +128,7 @@ class Convolver:
             part_of_filter_fft = fft.rfft(part_of_impulse, n, axis=0)
             filter_indices_fft[j+1] = filter_indices_fft[j] + part_of_filter_fft.shape[0]
             filter_fft[filter_indices_fft[j]:filter_indices_fft[j+1], :] = part_of_filter_fft
-        return filter_fft[0:filter_indices_fft[-1]], filter_indices_fft
+        return impulse, filter_fft[0:filter_indices_fft[-1]], filter_indices_fft
     
     def convolve(self, audio_in):
         # save audio sample
@@ -132,17 +136,30 @@ class Convolver:
         self.previous_buffers[bufferpos:bufferpos + cfg.buffer, :] = audio_in
         for i in range(0, self.number_of_filters):
             if (self.count + 1)%self.blocks_needed[i] != 0: break
-            elif (i==0)|(self.blocks_needed[i]!=self.blocks_needed[i-1]):
-                audio_to_filter = self.get_n_previous_buffers(self.blocks_needed[i])
-                audio_to_filter_fft = fft.rfft(audio_to_filter, self.filter_sizes[i], axis=0)
-                self.no_rfft += 1
-            self.filter_use[i] += 1
-            self.add_to_convolution_buffer(self.convolve_with_filter_fft(audio_to_filter_fft, i), self.offsets[i])
-
-        audio_out = self.get_from_convolution_buffer() + audio_in
+            else:
+                if (i==0)|(self.blocks_needed[i]!=self.blocks_needed[i-1]):
+                    audio_to_filter = self.get_n_previous_buffers(self.blocks_needed[i])
+                    audio_to_filter_fft = fft.rfft(audio_to_filter, self.filter_sizes[i], axis=0)
+                
+                if(i==0):
+                    audio_out = self.convolve_with_filter_fft(audio_to_filter_fft, i)
+                    self.add_to_convolution_buffer(audio_out, self.offsets[i])
+                else:
+                    self.convolution_queue.put((self.offsets[i], i, audio_to_filter_fft))
+                # print("fft", i)
+        if(self.realtime==False):
+            self.convolution_queue.join()
+        audio_out = self.get_from_convolution_buffer()
         self.count = (self.count + 1)%self.convolution_buffer_length
         return audio_out
-
+    
+    def convolution_worker(self):
+        while True:
+            (offset, i, audio_to_filter_fft) = self.convolution_queue.get()
+            audio_out = self.convolve_with_filter_fft(audio_to_filter_fft, i)
+            self.add_to_convolution_buffer(audio_out, self.offsets[i])
+            self.convolution_queue.task_done()
+            
     def get_from_convolution_buffer(self):
         index1 = (self.count)*cfg.buffer
         index2 = (self.count + 1)*cfg.buffer
@@ -166,7 +183,7 @@ class Convolver:
         audio_out_fft = filter_fft*audio_to_filter_fft
         audio_out = fft.irfft(audio_out_fft, axis=0)
         self.no_irfft += 1
-        return audio_out.real
+        return audio_out
 
     def get_n_previous_buffers(self, n):
         count_pb = self.count%self.blocks_needed[-1]
@@ -187,3 +204,8 @@ class Convolver:
         index1 = self.filter_indices_fft[filter_index]
         index2 = self.filter_indices_fft[filter_index + 1]
         return self.filter_fft[index1:index2, :]
+    
+    def get_filter(self, filter_index):
+        index1 = self.filter_indices[filter_index]
+        index2 = self.filter_indices[filter_index + 1]
+        return self.filter[index1:index2, :]
