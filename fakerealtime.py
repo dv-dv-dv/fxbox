@@ -10,8 +10,8 @@ def main():
     import convolver
     import compressor
     
-    wfi = wave.open('sjvoicesamp16.wav', 'rb')
-    wfo = wave.open('sjvoicesamp16_pyout.wav', 'wb')
+    wfi = wave.open('guitar_sample16.wav', 'rb')
+    wfo = wave.open('guitar_sample16_pyout.wav', 'wb')
     
     wfo.setnchannels(cfg.channels)
     wfo.setsampwidth(cfg.bytes_per_channel)

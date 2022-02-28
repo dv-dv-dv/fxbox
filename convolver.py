@@ -61,7 +61,7 @@ class Convolver:
                 for i in range(intensity.shape[0]):
                     intensity[i] = np.sqrt(np.sum(impulse_abs[i:i+window]**2))
                     
-                trigger = np.max(intensity)/50
+                trigger = np.max(intensity)/100
                 
                 for i in range(intensity.shape[0]):
                     k = intensity.shape[0] - i - 1
@@ -145,12 +145,12 @@ class Convolver:
         for i in range(1, self.number_of_filters):
             if (self.count + 1)%self.blocks_needed[i] != 0: break
             else:
-                self.convolution_queue.put((i, self.count))
+                self.convolution_queue.put((self.offsets[i], i, self.count))
+        self.work=True
         if(self.realtime==False):
             self.convolution_queue.join()
         audio_out = self.get_from_convolution_buffer()
         self.count = (self.count + 1)%self.convolution_buffer_length
-        self.work=True
         return audio_out
     
     def convolution_worker(self):
@@ -162,7 +162,7 @@ class Convolver:
         prev_filter = -1
         while True:
             while self.work==True:
-                (i, count) = self.convolution_queue.get()
+                (offset, i, count) = self.convolution_queue.get()
                 if(i==1)|(blocks_needed[i]!=prev_filter):
                     audio_to_filter = self.get_n_previous_buffers(blocks_needed[i], count)
                     audio_to_filter_fft = fft.rfft(audio_to_filter, filter_sizes[i], axis=0)
@@ -173,9 +173,9 @@ class Convolver:
                 audio_out_fft = filter_fft_part*audio_to_filter_fft
                 audio_out = fft.irfft(audio_out_fft, axis=0)
                 audio_out = self.convolve_with_filter_fft(audio_to_filter_fft, i)
-                self.add_to_convolution_buffer(audio_out, offsets[i], count)
+                self.add_to_convolution_buffer(audio_out, offset, count)
                 self.convolution_queue.task_done()
-                # print("yes")
+                print(filter_sizes[i])
             
     def get_from_convolution_buffer(self):
         index1 = (self.count)*cfg.buffer

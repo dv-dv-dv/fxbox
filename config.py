@@ -22,4 +22,4 @@ post = 0.5
 n_step = 2 # any number greater than 1, dont set this higher than 3, probably
 filter_size_cap = 2**13
 delay_amount = 0 # delays the convolution by 2**n buffer counts, improves performance significantly
-height = 7
+height = 3
