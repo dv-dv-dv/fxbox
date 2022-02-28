@@ -18,7 +18,7 @@ for x in range(0, no_indexes):
      print(p.get_device_info_by_index(x))
 
 # comp = compressor.Compressor2()
-conv = convolver.Convolver('impulses/IMPSpring04')
+conv = convolver.Convolver('impulses/IMPSpring04', realtime=True)
 count = 0
 zeros = np.zeros((cfg.buffer, 2), dtype=np.int16)
 do_conv = False
@@ -54,6 +54,8 @@ stream.start_stream()
 while stream.is_active():
     time.sleep(1)
     print("going...")
-    pass
+    time.sleep(1)
+    print("CPU Load", stream.get_cpu_load()*100)
+
 stream.stop_stream()
 p.terminate()
