@@ -5,8 +5,8 @@ import threading
 
 ##user imports
 import config as cfg
-import compressor_cy as compressor
-import convolver_cy as convolver
+# import compressor_cy as compressor
+import convolver
 
 
 p = pyaudio.PyAudio()
@@ -17,8 +17,8 @@ no_indexes = p.get_device_count()
 for x in range(0, no_indexes):
      print(p.get_device_info_by_index(x))
 
-comp = compressor.Compressor2()
-conv = convolver.Convolver2('impulses/IMPSpring04.wav')
+# comp = compressor.Compressor2()
+conv = convolver.Convolver('impulses/IMPSpring04')
 count = 0
 zeros = np.zeros((cfg.buffer, 2), dtype=np.int16)
 do_conv = False
@@ -52,6 +52,8 @@ stream = p.open(format=pyaudio.paInt16,
 
 stream.start_stream()
 while stream.is_active():
-    conv.convolution_worker(loop=False)
+    time.sleep(1)
+    print("going...")
+    pass
 stream.stop_stream()
 p.terminate()
