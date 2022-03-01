@@ -6,6 +6,20 @@ import time
 # user imports
 import config as cfg
 
+def convolution_process(filter_indices_fft, filter_fft, mp_in_queue1, mp_out_queue1):
+    while True:
+        irfft_time = 0
+        (i, offset, count, audio_to_filter_fft) = mp_in_queue1.get()
+        index1 = filter_indices_fft[i]
+        index2 = filter_indices_fft[i + 1]
+        filter_fft_part =  filter_fft[index1:index2, :]
+        audio_out_fft = filter_fft_part*audio_to_filter_fft
+        irfft_time -= time.perf_counter()
+        audio_out = np.fft.irfft(audio_out_fft, axis=0)
+        irfft_time += time.perf_counter()
+        mp_in_queue1.task_done()
+        mp_out_queue1.put((offset, count, audio_out, irfft_time))
+
 class Convolver:
     def __init__(self, impulse_file, realtime=False):
         global convolution_buffer, previous_buffers
@@ -21,12 +35,17 @@ class Convolver:
         self.rfft_timer = 0
         self.irfft_timer = 0
         self.convolution_queue = queue.Queue(self.number_of_filters)
+        self.mp_in_queue1 = mp.JoinableQueue()
+        self.mp_out_queue1 = mp.JoinableQueue()
         
-        self.work=False
         self.worker_process = threading.Thread(target=self.convolution_worker, daemon=True)
         self.worker_process.start()
-        # import wisdom_tools
-        # pyfftw.import_wisdom(wisdom_tools.get_wisdom())
+        self.worker_process2 = threading.Thread(target=self.convolution_worker2, daemon=True)
+        self.worker_process2.start()
+        
+        for _ in range(mp.cpu_count()):
+            mp.Process(target=convolution_process, args=(self.filter_indices_fft, self.filter_fft, self.mp_in_queue1, self.mp_out_queue1),daemon=True).start()
+
         
     def print_fft_usage(self):
         print("number of rfft:", self.no_rfft)
@@ -176,10 +195,12 @@ class Convolver:
         for i in range(self.number_of_filters):
             if (self.count + 1)%self.blocks_needed[i] != 0: break
             else:
-                self.convolution_queue.put((self.offsets[i], i, self.count))
-        self.work=True
+                self.convolution_queue.put((i, self.count))
+                
         if(self.realtime==False):
             self.convolution_queue.join()
+            self.mp_in_queue1.join()
+            self.mp_out_queue1.join()
         audio_out = self.get_from_convolution_buffer()
         self.count = (self.count + 1)%self.convolution_buffer_length
         return audio_out
@@ -195,52 +216,49 @@ class Convolver:
         blocks_needed = self.blocks_needed
         unique_blocks = np.unique(blocks_needed)
         filter_sizes = self.filter_sizes
-        filter_indices_fft = self.filter_indices_fft
-        filter_fft = self.filter_fft
         prev_filter = -1
         prev_count = -1
         vspectra = np.vectorize(spectra)
         spectras = vspectra(np.empty(unique_blocks.shape[0]))
         unique_spectras = unique_blocks.shape[0]
+        offsets = self.offsets
         
         for i in range(unique_spectras):
             spectras[i].blocks_needed = unique_blocks[i]
             
         while True:
-            while self.work==True:
-                spectra_needed = True
-                (offset, i, count) = self.convolution_queue.get()
-                if (blocks_needed[i]!=prev_filter)|(count!=prev_count):
-                    for j in range(unique_spectras):
-                        if spectras[j].blocks_needed==blocks_needed[i]:
-                            index = j
-                            if(spectras[j].count==count):
-                                audio_to_filter_fft = spectras[j].spectra
-                                spectra_needed = False
-                            break
-                    if(spectra_needed==True):
-                        audio_to_filter = self.get_n_previous_buffers(blocks_needed[i], count)
-                        self.rfft_timer -= time.perf_counter()
-                        audio_to_filter_fft = np.fft.rfft(audio_to_filter, filter_sizes[i], axis=0)
-                        self.rfft_timer += time.perf_counter()
-                        spectras[index].spectra = audio_to_filter_fft
-                        spectras[index].count = count
-                        self.no_rfft += 1
+            spectra_needed = True
+            (i, count) = self.convolution_queue.get()
+            if (blocks_needed[i]!=prev_filter)|(count!=prev_count):
+                for j in range(unique_spectras):
+                    if spectras[j].blocks_needed==blocks_needed[i]:
+                        index = j
+                        if(spectras[j].count==count):
+                            audio_to_filter_fft = spectras[j].spectra
+                            spectra_needed = False
+                        break
+                if(spectra_needed==True):
+                    audio_to_filter = self.get_n_previous_buffers(blocks_needed[i], count)
+                    self.rfft_timer -= time.perf_counter()
+                    audio_to_filter_fft = np.fft.rfft(audio_to_filter, filter_sizes[i], axis=0)
+                    self.rfft_timer += time.perf_counter()
+                    spectras[index].spectra = audio_to_filter_fft
+                    spectras[index].count = count
+                    self.no_rfft += 1
+            
+            prev_filter = blocks_needed[i]
+            prev_count = count
+            self.mp_in_queue1.put((i, offsets[i], count, audio_to_filter_fft))
+            self.convolution_queue.task_done()
                 
-                prev_filter = blocks_needed[i]
-                prev_count = count
-                index1 = filter_indices_fft[i]
-                index2 = filter_indices_fft[i + 1]
-                filter_fft_part =  filter_fft[index1:index2, :]
-                audio_out_fft = filter_fft_part*audio_to_filter_fft
-                start = time.perf_counter()
-                self.irfft_timer -= time.perf_counter()
-                audio_out = np.fft.irfft(audio_out_fft, axis=0)
-                self.irfft_timer += time.perf_counter()
-                self.no_irfft += 1
-                self.add_to_convolution_buffer(audio_out, offset, count)
-                self.convolution_queue.task_done()
-    
+    def convolution_worker2(self):
+        while True:
+            (offset, count, audio_out, irfft_time) = self.mp_out_queue1.get()
+            self.add_to_convolution_buffer(audio_out, offset, count)
+            self.mp_out_queue1.task_done()
+            self.no_irfft += 1
+            self.irfft_timer += irfft_time
+        
     def get_from_convolution_buffer(self):
         index1 = (self.count)*cfg.buffer
         index2 = (self.count + 1)*cfg.buffer
