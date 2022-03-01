@@ -2,9 +2,10 @@
 import numpy as np
 import time
 
-def fft_test(min_tests=100, n_min=10, n_max=16, channels=2):
+def fft_test(min_tests=100, n_min=10, n_max=16, channels=4):
     length_to_test = min_tests*2**n_max
-    sample = np.random.randint(-2**14, 2**14, (min_tests*2**(n_max+1), 2))
+    length_to_test2 = length_to_test*channels
+    sample = np.random.randint(-2**14, 2**14, (min_tests*2**(n_max+1), channels))
     offsets = np.random.randint(0, sample.shape[0] - 2**(n_max), length_to_test)
     times = np.zeros(n_max + 1 - n_min)
     for i in range(n_min, n_max + 1):
@@ -19,9 +20,9 @@ def fft_test(min_tests=100, n_min=10, n_max=16, channels=2):
         t += time.perf_counter_ns()
         times[i - n_min] = t
     for i in range(times.shape[0]):
-        print("for a transform of length", 2**(n_min + i), "it takes",round(times[i]/length_to_test, 2), "nanoseconds per sample")
+        print("for a transform of length", 2**(n_min + i), "it takes",round(times[i]/length_to_test2, 2), "nanoseconds per sample")
     times_sorted_args = np.argsort(times)
-    print("the fastest transform was a transform of length", 2**(n_min + times_sorted_args[0]), "which took", round(times[times_sorted_args[0]]/length_to_test, 2), "nanoseconds per sample")
+    print("the fastest transform was a transform of length", 2**(n_min + times_sorted_args[0]), "which took", round(times[times_sorted_args[0]]/length_to_test2, 2), "nanoseconds per sample")
 
 def main():
     fft_test()
