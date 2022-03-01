@@ -20,7 +20,7 @@ def main():
     out_data = B'\x00\x00\x00'
     in_data = wfi.readframes(cfg.buffer)
     comp = compressor.Compressor2()
-    conv = convolver.Convolver('impulses/IMP Spring 04')
+    conv = convolver.Convolver('impulses/IMP Instant')
     count = 0
     
     print("buffer size is", cfg.buffer)

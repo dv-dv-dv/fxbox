@@ -37,7 +37,6 @@ class Convolver:
         n_step = cfg.n_step
         height = cfg.height
         n_cap = math.floor(math.log2(cfg.filter_size_cap/cfg.buffer))
-        if(2**n_cap > filter_length/4): n_cap = math.floor(math.log2(filter_length/4))
         filter_indices = self.partition_filter(filter_length, height, n_cap, n_step)
         (impulse, filter_fft, filter_indices_fft) = self.compute_filter_fft(impulse, self.blocks_needed, filter_indices)
         self.filter_fft = filter_fft
@@ -45,21 +44,30 @@ class Convolver:
         self.filter_indices_fft = filter_indices_fft
         self.filter_indices = filter_indices
 
-    def import_from_wave(self, wave_file, trim=cfg.trim, force_trim=cfg.force_trim):
+    def import_from_wave(self, wave_file, force_trim=cfg.force_trim):
         import os.path
         import wave
+        wfi = wave.open(wave_file+".wav", 'rb')
+        wave_bytes = wfi.readframes(wfi.getnframes())
+        impulse = np.frombuffer(wave_bytes, dtype=np.int16)
+        wfi.close()
+        if(wfi.getnchannels()==1):
+            impulse_temp = np.zeros((impulse.shape[0], 2), dtype=np.int16)
+            impulse_temp[:, 0] = impulse_temp[:, 1] = impulse
+            impulse = impulse_temp
+        else:
+            impulse = impulse.reshape(-1, 2)
+        trim=False
+        if(impulse.shape[0]>100000): 
+            trim=True
+            print("impulse is long, trimming...")
         if (trim==True) & (force_trim==False) & (os.path.exists(wave_file+"_trimmed.wav")):
             if(os.path.exists(wave_file+"_trimmed.wav")):
                 wfi = wave.open(wave_file+"_trimmed.wav", 'rb')
                 wave_bytes = wfi.readframes(wfi.getnframes())
                 wfi.close()
                 impulse = np.frombuffer(wave_bytes, dtype=np.int16).reshape(-1,2)
-        else:
-            import wave
-            wfi = wave.open(wave_file+".wav", 'rb')
-            wave_bytes = wfi.readframes(wfi.getnframes())
-            wfi.close()
-            impulse = np.frombuffer(wave_bytes, dtype=np.int16).reshape(-1,2)
+        elif(trim==True):
             if(trim ==True):
                 window = 100
                 impulse_abs = np.abs(impulse[:, 0]).astype(np.double) + np.abs(impulse[:, 1]).astype(np.double);
@@ -68,7 +76,7 @@ class Convolver:
                 for i in range(intensity.shape[0]):
                     intensity[i] = np.sqrt(np.sum(impulse_abs[i:i+window]**2))
                     
-                trigger = np.max(intensity)/100
+                trigger = np.max(intensity)/200
                 
                 for i in range(intensity.shape[0]):
                     k = intensity.shape[0] - i - 1
@@ -90,7 +98,7 @@ class Convolver:
             height = 2**n_step - 1
         space_left = -filter_length
         blocks_needed = np.zeros(filter_length, dtype=np.int16)
-        filter_indices = np.zeros(filter_length, dtype=np.int32)
+        filter_indices = np.zeros(filter_length + 1, dtype=np.int32)
         offsets = np.zeros(filter_length, dtype=np.int32)
         i = 0
         n = cfg.delay_amount # nth power of 2
@@ -149,6 +157,7 @@ class Convolver:
             audio_to_filter_fft = fft.rfft(audio_to_filter, self.filter_sizes[0], axis=0)
             audio_out = self.convolve_with_filter_fft(audio_to_filter_fft, 0)
             self.add_to_convolution_buffer(audio_out, self.offsets[0], self.count)
+            self.no_rfft += 1
         
         for i in range(1, self.number_of_filters):
             if (self.count + 1)%self.blocks_needed[i] != 0: break
