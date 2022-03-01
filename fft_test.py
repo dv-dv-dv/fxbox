@@ -2,7 +2,7 @@
 import numpy as np
 import time
 
-def fft_test(min_tests=200, n_min=10, n_max=16, channels=2):
+def fft_test(min_tests=100, n_min=10, n_max=16, channels=2):
     length_to_test = min_tests*2**n_max
     sample = np.random.randint(-2**14, 2**14, (min_tests*2**(n_max+1), 2))
     offsets = np.random.randint(0, sample.shape[0] - 2**(n_max), length_to_test)

@@ -1,5 +1,5 @@
 samplerate = 44100
-buffer = 128
+buffer = 512
 bytes_per_channel = 2
 channels = 2
 
@@ -21,7 +21,7 @@ post = 0.5
 # do not touch, probably
 n_step = 2 # any number greater than 1, dont set this higher than 3, probably
 filter_size_cap = 16384
-height = 2**(n_step)
-first_filter_power = 3
+height = 2**(n_step + 1)
+first_filter_power = 4
 trim = False
 force_trim = False
