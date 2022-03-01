@@ -255,12 +255,13 @@ class Convolver:
                 self.irfft_timer -= time.perf_counter()
                 audio_out = np.fft.irfft(audio_out_fft, axis=0)
                 self.irfft_timer += time.perf_counter()
-                self.convolution_queue.task_done()
+                self.add_to_convolution_buffer(audio_out, offsets[i], count)
             else:
                 prev_filter = blocks_needed[i]
                 prev_count = count
                 self.mp_in_queue1.put((i, offsets[i], count, audio_to_filter_fft))
-                self.convolution_queue.task_done()
+            
+            self.convolution_queue.task_done()
                 
     def convolution_worker2(self):
         while True:
