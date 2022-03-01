@@ -25,7 +25,8 @@ def main():
     
     print("buffer size is", cfg.buffer)
     print("starting fake real time...")
-    start = time.perf_counter()
+    start1 = time.perf_counter()
+    exempt_time = 0
     while (len(in_data) == cfg.buffer*4)&(count < 999999999):
         x = np.frombuffer(in_data, dtype=np.int16)
         x = x.reshape(len(in_data)//(cfg.channels*cfg.bytes_per_channel),cfg.channels)
@@ -44,15 +45,17 @@ def main():
         out_data = y.tobytes()
         # write out_data to output wav
         # get new data from input wav file
+        exempt_time -= time.perf_counter()
         wfo.writeframes(out_data)
         in_data = wfi.readframes(cfg.buffer)
+        exempt_time += time.perf_counter()
         count = count + 1
-
+    
+    end = time.perf_counter()
     wfi.close()
     wfo.close()
-    end = time.perf_counter()
     conv.print_fft_usage()
-    print("fake real time finished in", (end - start), "seconds")
+    print("fake real time finished in", (end - start1 - exempt_time), "seconds")
     
 if __name__ == "__main__":
     main()
