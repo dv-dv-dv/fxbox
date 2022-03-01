@@ -16,7 +16,6 @@ class Convolver:
         previous_buffers = np.zeros((cfg.buffer*self.blocks_needed[-1], self.channels), dtype=np.int16)
         convolution_buffer = np.zeros((self.convolution_buffer_length*cfg.buffer, self.channels), dtype=np.double)
         self.count = 0
-        self.filter_use  = np.zeros(self.blocks_needed.shape[0])
         self.no_rfft = 0
         self.no_irfft = 0
         self.convolution_queue = queue.Queue(self.number_of_filters)
@@ -33,6 +32,12 @@ class Convolver:
         
     # this function does the necessary work in order to get the impulse ready for use
     def set_impulse(self, impulse):
+        first_filter_length = 2**cfg.first_filter_power - 1
+        first_filter_size = cfg.buffer*(2**cfg.first_filter_power - 1)
+        first_filter = impulse[0:first_filter_size, :]
+        self.first_filter_fft = fft.rfft(first_filter, first_filter_size + cfg.buffer, axis=0)
+        self.first_filter_length = first_filter_length
+        impulse = impulse[first_filter_size: impulse.shape[0] - 1, :]
         filter_length = math.ceil(impulse.shape[0]/cfg.buffer)
         n_step = cfg.n_step
         height = cfg.height
@@ -58,7 +63,7 @@ class Convolver:
         else:
             impulse = impulse.reshape(-1, 2)
         trim=False
-        if(impulse.shape[0]>100000): 
+        if((impulse.shape[0]>100000)&cfg.trim): 
             trim=True
             print("impulse is long, trimming...")
         if (trim==True) & (force_trim==False) & (os.path.exists(wave_file+"_trimmed.wav")):
@@ -101,7 +106,7 @@ class Convolver:
         filter_indices = np.zeros(filter_length + 1, dtype=np.int32)
         offsets = np.zeros(filter_length, dtype=np.int32)
         i = 0
-        n = cfg.delay_amount # nth power of 2
+        n = cfg.first_filter_power - 1 # nth power of 2
         x = 0
         y = 0
         prev_filter_length = 0
@@ -122,7 +127,7 @@ class Convolver:
         self.blocks_needed = blocks_needed[0:i]
         self.filter_sizes = self.blocks_needed.astype(np.int32)*cfg.buffer*2
         self.block_sizes = self.blocks_needed.astype(np.int32)*cfg.buffer
-        self.offsets = offsets[0:i] + 2**cfg.delay_amount-1
+        self.offsets = offsets[0:i] + 2**cfg.delay_amount-1 + self.first_filter_length
         self.test = np.argsort(self.offsets)
         self.number_of_filters = self.blocks_needed.shape[0]
         self.convolution_buffer_length = math.ceil(np.sum(self.blocks_needed)/self.blocks_needed[-1])*self.blocks_needed[-1]
@@ -152,14 +157,13 @@ class Convolver:
         # save audio sample
         bufferpos = cfg.buffer*(self.count%self.blocks_needed[-1])
         previous_buffers[bufferpos:bufferpos + cfg.buffer, :] = audio_in
-        if (self.count + 1)%self.blocks_needed[0] == 0:
-            audio_to_filter = self.get_n_previous_buffers(self.blocks_needed[0], self.count)
-            audio_to_filter_fft = fft.rfft(audio_to_filter, self.filter_sizes[0], axis=0)
-            audio_out = self.convolve_with_filter_fft(audio_to_filter_fft, 0)
-            self.add_to_convolution_buffer(audio_out, self.offsets[0], self.count)
-            self.no_rfft += 1
+        audio_to_filter_fft = fft.rfft(audio_in, (self.first_filter_length + 1)*cfg.buffer, axis=0)
+        self.no_rfft += 1
+        audio_out = fft.irfft(audio_to_filter_fft*self.first_filter_fft, axis=0)
+        self.add_to_convolution_buffer(audio_out, 0, self.count)
+        self.no_irfft += 1
         
-        for i in range(1, self.number_of_filters):
+        for i in range(self.number_of_filters):
             if (self.count + 1)%self.blocks_needed[i] != 0: break
             else:
                 self.convolution_queue.put((self.offsets[i], i, self.count))

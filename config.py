@@ -1,5 +1,5 @@
 samplerate = 44100
-buffer = 1024
+buffer = 128
 bytes_per_channel = 2
 channels = 2
 
@@ -19,10 +19,9 @@ post = 0.5
 
 # convolver engine variables
 # do not touch, probably
-n_step = 1 # any number greater than 1, dont set this higher than 3, probably
+n_step = 2 # any number greater than 1, dont set this higher than 3, probably
 filter_size_cap = 16384
-delay_amount = 0 # delays the convolution by 2**n buffer counts, improves performance significantly
-height = 2**(n_step) 
-
+height = 2**(n_step)
+first_filter_power = 3
 trim = False
 force_trim = False
