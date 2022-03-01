@@ -222,6 +222,8 @@ class Convolver:
         spectras = vspectra(np.empty(unique_blocks.shape[0]))
         unique_spectras = unique_blocks.shape[0]
         offsets = self.offsets
+        filter_indices_fft = self.filter_indices_fft
+        filter_fft = self.filter_fft
         
         for i in range(unique_spectras):
             spectras[i].blocks_needed = unique_blocks[i]
@@ -245,11 +247,20 @@ class Convolver:
                     spectras[index].spectra = audio_to_filter_fft
                     spectras[index].count = count
                     self.no_rfft += 1
-            
-            prev_filter = blocks_needed[i]
-            prev_count = count
-            self.mp_in_queue1.put((i, offsets[i], count, audio_to_filter_fft))
-            self.convolution_queue.task_done()
+            if(blocks_needed[i] == unique_blocks[0]):        
+                index1 = filter_indices_fft[i]
+                index2 = filter_indices_fft[i + 1]
+                filter_fft_part =  filter_fft[index1:index2, :]
+                audio_out_fft = filter_fft_part*audio_to_filter_fft
+                self.irfft_timer -= time.perf_counter()
+                audio_out = np.fft.irfft(audio_out_fft, axis=0)
+                self.irfft_timer += time.perf_counter()
+                self.convolution_queue.task_done()
+            else:
+                prev_filter = blocks_needed[i]
+                prev_count = count
+                self.mp_in_queue1.put((i, offsets[i], count, audio_to_filter_fft))
+                self.convolution_queue.task_done()
                 
     def convolution_worker2(self):
         while True:
