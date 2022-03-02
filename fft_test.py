@@ -2,7 +2,7 @@
 import numpy as np
 import time
 
-def fft_test(min_tests=100, n_min=6, n_max=10, min_channels=2, max_channels=6):
+def fft_test(min_tests=100, n_min=10, n_max=15, min_channels=2, max_channels=6):
     for k in range(min_channels, max_channels+1):
         channels = k
         length_to_test = min_tests*2**n_max
