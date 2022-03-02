@@ -55,7 +55,7 @@ def main():
     wfi.close()
     wfo.close()
     conv.print_fft_usage()
-    print("fake real time finished in", (end - start1 - exempt_time), "seconds")
+    print("fake real time finished in", round(end - start1 - exempt_time, 2), "seconds")
     
 if __name__ == "__main__":
     main()
