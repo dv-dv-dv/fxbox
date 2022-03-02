@@ -27,7 +27,7 @@ def main():
     print("starting fake real time...")
     start1 = time.perf_counter()
     exempt_time = 0
-    while (len(in_data) == cfg.buffer*4)&(count < 999999999):
+    while (len(in_data) == cfg.buffer*4):
         x = np.frombuffer(in_data, dtype=np.int16)
         x = x.reshape(len(in_data)//(cfg.channels*cfg.bytes_per_channel),cfg.channels)
         # processing goes here
@@ -35,6 +35,9 @@ def main():
         test1 = x
         # test1 = comp.compress(test1)
         test1 = conv.convolve(test1)
+        if(test1.shape[0]==0):
+            asdf = 123
+        
         # y = np.stack((test1, test1), axis=1)
         
         y = test1

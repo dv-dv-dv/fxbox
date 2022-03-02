@@ -6,10 +6,10 @@ import time
 # user imports
 import config as cfg
 
-def convolution_process(offsets, filter_indices_fft, filter_fft, filter_sizes_fft, mp_in_queue1, mp_out_queue1):
+def convolution_process(offsets, filter_indices_fft, filter_fft, filter_sizes_fft, in_queue, out_queue):
     while True:
         irfft_timer = 0
-        (i, count, audio_to_filter_fft, list_of_is) = mp_in_queue1.get()
+        (i, count, audio_to_filter_fft, list_of_is) = in_queue.get()
         is_length = list_of_is.shape[0]
         audio_out_fft_parallel = np.zeros((filter_sizes_fft[i], 2*is_length), dtype=np.cdouble)
         for n in range(is_length):
@@ -20,8 +20,8 @@ def convolution_process(offsets, filter_indices_fft, filter_fft, filter_sizes_ff
         audio_out_parallel = np.fft.irfft(audio_out_fft_parallel, axis=0)
         irfft_timer += time.perf_counter()
         for n in range(is_length):
-            mp_out_queue1.put((offsets[list_of_is[n]], count, audio_out_parallel[:, 2*n: 2*(n + 1)], irfft_timer))
-        mp_in_queue1.task_done()
+            out_queue.put((offsets[list_of_is[n]], count, audio_out_parallel[:, 2*n: 2*(n + 1)], irfft_timer))
+        in_queue.task_done()
         
 class Convolver:
     def __init__(self, impulse_file, realtime=False):
@@ -35,21 +35,23 @@ class Convolver:
         self.convolution_buffer = np.zeros((self.convolution_buffer_length*self.buffer, self.channels), dtype=np.double)
         
         self.count = 0
+        self.abs_count = 0
         self.no_rfft = 0
         self.no_irfft = 0
         self.rfft_timer = 0
         self.irfft_timer = 0
-        self.convolution_queue = queue.Queue(self.number_of_filters)
-        self.mp_in_queue1 = mp.JoinableQueue()
-        self.mp_out_queue1 = mp.JoinableQueue()
+        self.timer1 = 0
+        self.convolution_queue = queue.PriorityQueue(-1)
+        self.in_queue = mp.JoinableQueue(-1)
+        self.out_queue = mp.JoinableQueue(-1)
         
         self.worker_process = threading.Thread(target=self.convolution_worker, daemon=True)
         self.worker_process.start()
         self.worker_process2 = threading.Thread(target=self.convolution_worker2, daemon=True)
         self.worker_process2.start()
         
-        for _ in range(mp.cpu_count()):
-            mp.Process(target=convolution_process, args=(self.offsets, self.filter_indices_fft, self.filter_fft, self.filter_sizes_fft, self.mp_in_queue1, self.mp_out_queue1),daemon=True).start()
+        for _ in range(mp.cpu_count() - 1):
+            mp.Process(target=convolution_process, args=(self.offsets, self.filter_indices_fft, self.filter_fft, self.filter_sizes_fft, self.in_queue, self.out_queue)).start()
 
         
     def print_fft_usage(self):
@@ -59,6 +61,7 @@ class Convolver:
         print("time spent doing rffts:", round(self.rfft_timer, 2))
         print("time spent doing irffts:", round(self.irfft_timer, 2))
         print("total time spent doing rffts and irffts:", round(self.rfft_timer + self.irfft_timer, 2))
+        print(self.timer1)
         
     # this function does the necessary work in order to get the impulse ready for use
     def set_impulse(self, impulse):
@@ -163,6 +166,7 @@ class Convolver:
         self.number_of_filters = self.blocks_needed.shape[0]
         self.convolution_buffer_length = math.ceil(np.sum(self.blocks_needed)/self.blocks_needed[-1])*self.blocks_needed[-1]
         print(self.blocks_needed)
+        print(self.offsets)
         return filter_indices
     
     def compute_filter_fft(self, impulse, blocks_needed, filter_indices):
@@ -206,15 +210,17 @@ class Convolver:
                     if (self.blocks_needed[j] != self.blocks_needed[i])|(j==self.number_of_filters-1)|(j-i>=self.parallel_max):
                         list_of_is = np.arange(i, j)
                         break
-                self.convolution_queue.put((self.count + self.offsets[i], i, self.count, list_of_is))
+                self.convolution_queue.put((self.abs_count + self.offsets[i], i, self.count, list_of_is))
             i = j
-                
+        self.timer1 += time.perf_counter()
+
         if(self.realtime==False):
             self.convolution_queue.join()
-            self.mp_in_queue1.join()
-            self.mp_out_queue1.join()
+            self.in_queue.join()
+            self.out_queue.join()
         audio_out = self.get_from_convolution_buffer()
-        self.count += 1
+        self.abs_count += 1
+        self.count = (self.abs_count)%self.convolution_buffer_length
         return audio_out
     
     def convolution_worker(self):
@@ -226,6 +232,7 @@ class Convolver:
             blocks_needed: int = -1
             
         blocks_needed = self.blocks_needed
+        block_sizes = self.block_sizes
         unique_blocks = np.unique(blocks_needed)
         filter_sizes = self.filter_sizes
         prev_filter = -1
@@ -240,6 +247,8 @@ class Convolver:
             spectras[i].blocks_needed = unique_blocks[i]
             
         while True:
+            
+            self.timer1 -= time.perf_counter()
             spectra_needed = True
             (deadline, i, count, list_of_is) = self.convolution_queue.get()
             if (blocks_needed[i]!=prev_filter)|(count!=prev_count):
@@ -261,7 +270,7 @@ class Convolver:
             
             prev_filter = blocks_needed[i]
             prev_count = count
-            if(blocks_needed[i] < 128):
+            if(offsets[i] > 9999999):
                 is_length = list_of_is.shape[0]
                 audio_out_fft_parallel = np.zeros((self.filter_sizes_fft[i], 2*is_length), dtype=np.cdouble)
                 for n in range(is_length):
@@ -275,14 +284,15 @@ class Convolver:
                 for n in range(is_length):
                     self.add_to_convolution_buffer(audio_out_parallel[:, 2*n: 2*(n + 1)], offsets[list_of_is[n]], count)
             else:
-                self.mp_in_queue1.put((i, count, audio_to_filter_fft, list_of_is))
+                self.in_queue.put((i, count, audio_to_filter_fft, list_of_is))
             self.convolution_queue.task_done()
-                
+            self.timer1 += time.perf_counter()
+            
     def convolution_worker2(self):
         while True:
-            (offset, count, audio_out, irfft_time) = self.mp_out_queue1.get()
+            (offset, count, audio_out, irfft_time) = self.out_queue.get()
             self.add_to_convolution_buffer(audio_out, offset, count)
-            self.mp_out_queue1.task_done()
+            self.out_queue.task_done()
             self.no_irfft += 1
             self.irfft_timer += irfft_time
         
