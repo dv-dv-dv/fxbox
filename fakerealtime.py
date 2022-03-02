@@ -10,8 +10,8 @@ def main():
     import convolver
     import compressor
     
-    wfi = wave.open('guitar_sample16.wav', 'rb')
-    wfo = wave.open('guitar_sample16_pyout.wav', 'wb')
+    wfi = wave.open('sjvoicesamp16.wav', 'rb')
+    wfo = wave.open('sjvoicesamp16_pyout.wav', 'wb')
     
     wfo.setnchannels(cfg.channels)
     wfo.setsampwidth(cfg.bytes_per_channel)
@@ -31,7 +31,6 @@ def main():
         x = np.frombuffer(in_data, dtype=np.int16)
         x = x.reshape(len(in_data)//(cfg.channels*cfg.bytes_per_channel),cfg.channels)
         # processing goes here
-        # y = comp.compress(x)
         test1 = x
         # test1 = comp.compress(test1)
         test1 = conv.convolve(test1)

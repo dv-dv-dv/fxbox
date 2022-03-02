@@ -3,7 +3,7 @@ buffer = 64
 bytes_per_channel = 2
 channels = 2
 
-#default compressor variables
+# compressor variables
 threshold = -50
 ratio = 7
 knee_width = 10
@@ -12,17 +12,21 @@ post_gain = 20
 attack = 0.005
 release = 0.5
 
-# default convolver variables
+# convolver variables
 wet = 1
 dry = 1
 post = 0.5
 
 # convolver engine variables
 # do not touch, probably
-n_step = 3 # any number greater than 1, dont set this higher than 3, probably
-filter_size_cap = 8192
-height = 2**(n_step)
+n_step = 2 # any number greater than 1, dont set this higher than 3, probably
 first_filter_power = 5
+n_start = first_filter_power - 1
+filter_size_cap = 16384
+height = 2**(n_step)
+parallel_max = 2
+power_ratio = 2 # doesnt work for numbers above 2
 trim = False
 force_trim = False
-parallel_max = height
+trim_trigger = 100
+trim_window = 50

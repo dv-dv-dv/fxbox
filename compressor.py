@@ -19,7 +19,6 @@ class Compressor:
         self.k = (2**(cfg.bytes_per_channel*8))/2 # max value of a 16 bit signed integer
         self.compute_params()
         
-        asdf = np.int16
         # define vectorized functions
         self.v_log_to_linear = np.vectorize(self.log_to_linear)
         self.v_linear_to_log = np.vectorize(self.linear_to_log)
