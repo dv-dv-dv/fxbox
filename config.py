@@ -15,16 +15,16 @@ release = 0.5
 # convolver variables
 wet = 1
 dry = 1
-post = 0.5
+post = 1
 
 # convolver engine variables
 # do not touch, probably
 n_step = 2 # any number greater than 1, dont set this higher than 3, probably
-first_filter_power = 5
+first_filter_power = 4
 n_start = first_filter_power - 1
-filter_size_cap = 16384
-height = 2**(n_step)
-parallel_max = height
+filter_size_cap = 8192
+height = 4
+parallel_max = 4
 trim = False
 force_trim = False
 trim_trigger = 100
