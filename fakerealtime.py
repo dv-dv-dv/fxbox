@@ -5,10 +5,10 @@ def main():
     
     ##user imports
     import config as cfg
-    # import compressor_cy as compressor
+    import compressor_cy as compressor
     # import convolver_cy as convolver
     import convolver
-    import compressor
+    # import compressor
     
     wfi = wave.open('sjvoicesamp16.wav', 'rb')
     wfo = wave.open('sjvoicesamp16_pyout.wav', 'wb')

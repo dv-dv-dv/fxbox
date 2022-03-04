@@ -1,5 +1,5 @@
 samplerate = 44100
-buffer = 64
+buffer = 256
 bytes_per_channel = 2
 channels = 2
 
@@ -24,8 +24,7 @@ first_filter_power = 5
 n_start = first_filter_power - 1
 filter_size_cap = 16384
 height = 2**(n_step)
-parallel_max = 2
-power_ratio = 2 # doesnt work for numbers above 2
+parallel_max = height
 trim = False
 force_trim = False
 trim_trigger = 100

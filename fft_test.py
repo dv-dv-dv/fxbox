@@ -19,9 +19,7 @@ def fft_test(min_tests=100, n_min=10, n_max=15, min_channels=2, max_channels=6):
             e = 0
             print("testing transforms of length", transform_length)
             for j in range(tests_to_run):
-                e -= time.perf_counter_ns()
                 a = np.fft.rfft(sample[offsets[i]:offsets[i] + transform_length, :], axis=0)
-                e += time.perf_counter_ns()
                 b = np.fft.irfft(a)
             t += time.perf_counter_ns()
             times[i - n_min] = t - e
