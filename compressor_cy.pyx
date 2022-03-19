@@ -20,7 +20,7 @@ cdef class Compressor:
         cdef double db_to_log2_constant = cmath.log10(2)*20
         self.threshold = threshold / db_to_log2_constant
         self.ratio = ratio
-        self.knee_width = knee_width / db_to_log2_constant
+        self.knee_width = (knee_width) / db_to_log2_constant + 1
         self.pre_gain = pre_gain / db_to_log2_constant
         self.post_gain = post_gain / db_to_log2_constant
         self.attack =cmath.exp(-1/(attack*cfg.samplerate))
@@ -30,6 +30,7 @@ cdef class Compressor:
         
         self.gc_param1 = self.threshold - self.knee_width/2
         self.gc_param2 = self.threshold + self.knee_width/2
+        print(self.knee_width)
         self.gc_param3 = (1/self.ratio - 1)/(2*self.knee_width)
         self.gc_param4 = self.threshold*(1-1/self.ratio)
         self.l2log_param1 =cmath.log2(self.k)

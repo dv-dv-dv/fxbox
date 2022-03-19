@@ -1,6 +1,5 @@
 import numpy as np
 import math
-
 # user imports
 import config as cfg
 
@@ -10,7 +9,7 @@ class Compressor:
         db_to_log2_constant = math.log10(2)*20
         self.threshold = threshold / db_to_log2_constant
         self.ratio = ratio
-        self.knee_width = knee_width / db_to_log2_constant
+        self.knee_width = (knee_width + 10**-5) / db_to_log2_constant
         self.pre_gain = pre_gain / db_to_log2_constant
         self.post_gain = post_gain / db_to_log2_constant
         self.attack = math.exp(-1/(attack*cfg.samplerate))
@@ -26,8 +25,12 @@ class Compressor:
         self.v_level_detector = np.vectorize(self.level_detector)
     
     def compress(self, audio_in):
-        gain_linear = self.calculate_gain(audio_in)
-        audio_out = audio_in.astype(np.double)*gain_linear
+        audio_in_double = audio_in.astype(np.double)
+        audio_in_mono = (audio_in_double[:, 0] + audio_in_double[:, 1])/2
+        gain_linear = self.calculate_gain(audio_in_mono)
+        audio_out = audio_in.astype(np.double)
+        audio_out[:, 0] *= gain_linear
+        audio_out[:, 1] *= gain_linear
         return audio_out.astype(np.int16)
     
     def calculate_gain(self, audio_in):
@@ -79,12 +82,3 @@ class Compressor:
     def log_to_linear(self, log_value):
         linear_value = 2**(log_value)
         return linear_value
-    
-class Compressor2(Compressor):
-    def compress(self, audio_in):
-        audio_in_mono = audio_in[:,0] + audio_in[:,1]
-        gain_linear = self.calculate_gain(audio_in_mono)
-        audio_out = audio_in.astype(np.double)
-        audio_out[:, 0] *= gain_linear
-        audio_out[:, 1] *= gain_linear
-        return audio_out.astype(np.int16)

@@ -9,9 +9,11 @@ def main():
     # import convolver_cy as convolver
     import convolver
     # import compressor
+    import equalizer
     
-    wfi = wave.open('sjvoicesamp16.wav', 'rb')
-    wfo = wave.open('sjvoicesamp16_pyout.wav', 'wb')
+    in_file = 'guitar_sample16'
+    wfi = wave.open(in_file + '.wav', 'rb')
+    wfo = wave.open(in_file + '_pyout.wav', 'wb')
     
     wfo.setnchannels(cfg.channels)
     wfo.setsampwidth(cfg.bytes_per_channel)
@@ -21,6 +23,7 @@ def main():
     in_data = wfi.readframes(cfg.buffer)
     comp = compressor.Compressor2()
     conv = convolver.Convolver('impulses/IMP Spring 04')
+    equal = equalizer.Equalizer()
     count = 0
     
     print("buffer size is", cfg.buffer)
@@ -33,7 +36,8 @@ def main():
         # processing goes here
         test1 = x
         # test1 = comp.compress(test1)
-        test1 = conv.convolve(test1)
+        test1 = equal.equalize(test1)
+        # test1 = conv.convolve(test1)
         if(test1.shape[0]==0):
             asdf = 123
         
@@ -56,7 +60,6 @@ def main():
     end = time.perf_counter()
     wfi.close()
     wfo.close()
-    conv.print_fft_usage()
     print("fake real time finished in", round(end - start1 - exempt_time, 2), "seconds")
     
 if __name__ == "__main__":
