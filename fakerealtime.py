@@ -22,7 +22,7 @@ def main():
     out_data = B'\x00\x00\x00'
     in_data = wfi.readframes(cfg.buffer)
     comp = compressor.Compressor2()
-    conv = convolver.Convolver('impulses/IMP Spring 04')
+    conv = convolver.Convolver('impulses/' + cfg.impulse)
     equal = equalizer.Equalizer()
     count = 0
     
@@ -36,8 +36,8 @@ def main():
         # processing goes here
         test1 = x
         # test1 = comp.compress(test1)
-        test1 = equal.equalize(test1)
-        # test1 = conv.convolve(test1)
+        # test1 = equal.equalize(test1)
+        test1 = conv.convolve(test1)
         if(test1.shape[0]==0):
             asdf = 123
         

@@ -15,8 +15,6 @@ def filter_audio(np.ndarray[ITYPE_t, ndim=2] audio_in, np.ndarray[FTYPE_t] a_fli
     a_flipped[nm_max] = 0
     for i in range(audio_in.shape[0]):
         n = int(i + nm_max)
-        # y[n, 0] = np.sum(b_flipped*x[i:i + 1, 0] - a_flipped*y[i:n + 1, 0], dtype=np.double)
-        # y[n, 1] = np.sum(b_flipped*x[i:n + 1, 1] - a_flipped*y[i:n + 1, 1], dtype=np.double)
         for j in range(nm_max + 1):
             y[n, 0] += b_flipped[j]*x[i + j, 0] - a_flipped[j]*y[i + j, 0]
             y[n, 1] += b_flipped[j]*x[i + j, 1] - a_flipped[j]*y[i + j, 1]

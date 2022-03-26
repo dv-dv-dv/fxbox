@@ -7,6 +7,7 @@ import time
 import config as cfg
 import equalizer_cy
 class Equalizer:
+    # todo: implement Filter in cython
     @dataclass
     class Filter:
         a: np.ndarray
@@ -37,9 +38,9 @@ class Equalizer:
         self.hpf = self.Filter(a=a_hpf, b=b_hpf)
         self.bpf_cutoff = np.array(cfg.peaking_cutoff)
         self.bpf = np.empty(len(cfg.peaking_cutoff), dtype=object)
-        for i in range(len(cfg.peaking_cutoff)):
-            b_bpf, a_bpf = sps.butter(N=cfg.peaking_order[i]*2, Wn=cfg.peaking_cutoff[i], fs=44100, btype='bandpass')
-            self.bpf[i] = 0
+        # for i in range(len(cfg.peaking_cutoff)):
+        #     b_bpf, a_bpf = sps.butter(N=cfg.peaking_order[i]*2, Wn=cfg.peaking_cutoff[i], fs=44100, btype='bandpass')
+        #     self.bpf[i] = 0
             
         self.lpf_enabled = cfg.lowpass_enabled
         self.hpf_enabled = cfg.highpass_enabled

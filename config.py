@@ -4,28 +4,32 @@ bytes_per_channel = 2
 channels = 2
 
 # compressor variables
-threshold = -30.1
+threshold = -40
 ratio = 7
 knee_width = 1
 pre_gain = 0
-post_gain = 0
-attack = 0.02065
-release = 0.10046
+post_gain = 18
+attack = 0.015
+release = 0.2
 
 # convolver variables
+imps = ["",
+        "IMP Cabinet Model A"
+        "IMP Spring 04"]
 wet = 1
-dry = 1
+dry = 0
 post = 1
 
 # equalizer variables
 lowpass_enabled = True
-lowpass_cutoff = 5000
+lowpass_cutoff = 500
 lowpass_order = 2
 
-highpass_enabled = True
+highpass_enabled = False
 highpass_cutoff = 100
 highpass_order = 2
 
+peaking_enabled = [False, False, False]
 peaking_gain = [5, 5, 5] # in db
 peaking_cutoff = [100, 1000, 10000]
 peaking_bandwidth = []
