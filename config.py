@@ -13,9 +13,9 @@ attack = 0.015
 release = 0.2
 
 # convolver variables
-imps = ["",
-        "IMP Cabinet Model A"
-        "IMP Spring 04"]
+imps = ["leave this empty",
+        "IMP Spring 04",
+        "IMP Cabinet Model A"]
 wet = 1
 dry = 0
 post = 1

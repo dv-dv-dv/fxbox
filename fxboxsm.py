@@ -513,19 +513,25 @@ class FXBox:
                           "3 Attack",
                           "4 Post Gain"]
                 return screen
-                
+            
+            def get_values(self):
+                return self.thresh.get_value(), self.ration.get_value(), self.atk.get_value(), self.post.get_value()
+            
         class Convolver:
             def __init__(self):
                 self.imp = VerticalSlider(1, 4, 0, 1, decimal_places=0)
                 self.wet = VerticalSlider(-12, 12, 0, 0.5, decimal_places=1)
                 self.dry = VerticalSlider(-12, 12, 0, 0.5, decimal_places=1)
                 self.post = VerticalSlider(-12, 12, 0, 0.5, decimal_places=1)
+                
             def main_menu(self):
                 screen = ["1 Impulse",
                           "2 Wet Gain",
                           "3 Dry Gain",
                           "4 Post Gain"]
                 return screen
+            def get_values(self):
+                return self.imp.get_value(), self.wet.get_value(), self.dry.get_value(), self.post.get_value()
                 
         class Equalizer:
             def __init__(self):

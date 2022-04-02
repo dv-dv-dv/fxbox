@@ -7,19 +7,11 @@ import time
 import config as cfg
 
 class Convolver:
-    def __init__(self, impulse_number, realtime=False):
+    def __init__(self, impulse_number=1, realtime=False):
         print("initializing convoler...")
         self.buffer = cfg.buffer
         self.parallel_max = cfg.parallel_max
-        if impulse_number == 1:
-            pass
-        elif impulse_number == 2:
-            pass
-        elif impulse_number == 3:
-            pass
-        elif impulse_number == 4:
-            pass
-        impulse = self.import_from_wave(impulse_file)
+        impulse = self.import_from_wave("impulses/" + cfg.imps[impulse_number])
         self.channels = 2 # only two channels is verified to be working
         self.set_impulse(impulse)
         self.realtime=realtime

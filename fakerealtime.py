@@ -6,9 +6,7 @@ def main():
     ##user imports
     import config as cfg
     import compressor_cy as compressor
-    # import convolver_cy as convolver
     import convolver
-    # import compressor
     import equalizer
     
     in_file = 'guitar_sample16'
@@ -22,7 +20,7 @@ def main():
     out_data = B'\x00\x00\x00'
     in_data = wfi.readframes(cfg.buffer)
     comp = compressor.Compressor2()
-    conv = convolver.Convolver('impulses/' + cfg.impulse)
+    conv = convolver.Convolver()
     equal = equalizer.Equalizer()
     count = 0
     
