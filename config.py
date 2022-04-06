@@ -42,7 +42,6 @@ first_filter_power = 4
 n_start = first_filter_power - 1
 filter_size_cap = 8192
 height = 4
-parallel_max = 4
 trim = False
 force_trim = False
 trim_trigger = 100
