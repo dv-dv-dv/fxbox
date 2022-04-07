@@ -9,95 +9,64 @@ ITYPE = np.int16  # int type
 ctypedef np.int16_t ITYPE_t
 FTYPE = np.double;   # float type
 ctypedef np.double_t FTYPE_t
-@cython.boundscheck(False) # turn off bounds-checking for entire function
-@cython.wraparound(False)  # turn off negative index wrapping for entire function
 
 cdef class Compressor:
-    cdef double threshold, ratio, knee_width, pre_gain, post_gain, attack, release, level_detector_prev_out, k
-    cdef double gc_param1, gc_param2, gc_param3, gc_param4, l2log_param1
-    def __init__(self, threshold=cfg.threshold, ratio=cfg.ratio, knee_width=cfg.knee_width, pre_gain=cfg.pre_gain, post_gain=cfg.post_gain, attack=cfg.attack, release=cfg.release):
-        # define instance variables
-        cdef double db_to_log2_constant = cmath.log10(2)*20
-        self.threshold = threshold / db_to_log2_constant
+    cdef double threshold, ratio, knee_width, pre_gain, post_gain, attack, release, atk, rel, gcp1, gcp2, gcp3, gcp4, level_detector_prev_out
+    cdef int buffer_size
+    def __init__(self, threshold, ratio, knee_width, pre_gain, post_gain, attack, release):
+        self.threshold = threshold
         self.ratio = ratio
-        self.knee_width = (knee_width) / db_to_log2_constant + 1
-        self.pre_gain = pre_gain / db_to_log2_constant
-        self.post_gain = post_gain / db_to_log2_constant
-        self.attack =cmath.exp(-1/(attack*cfg.samplerate))
-        self.release =cmath.exp(-1/(release*cfg.samplerate))
-        self.level_detector_prev_out = 0
-        self.k = (2**(cfg.bytes_per_channel*8))/2 # max value of a 16 bit signed integer
-        
-        self.gc_param1 = self.threshold - self.knee_width/2
-        self.gc_param2 = self.threshold + self.knee_width/2
-        print(self.knee_width)
-        self.gc_param3 = (1/self.ratio - 1)/(2*self.knee_width)
-        self.gc_param4 = self.threshold*(1-1/self.ratio)
-        self.l2log_param1 =cmath.log2(self.k)
-        
-    def compress(self, np.ndarray[FTYPE_t] audio_in):
-        cdef np.ndarray[FTYPE_t] gain_linear = self.calculate_gain(audio_in)
-        cdef np.ndarray[FTYPE_t] audio_out = audio_in.astype(np.double)*gain_linear
-        return audio_out.astype(np.int16)
+        self.knee_width = (knee_width + 10**-5)
+        self.pre_gain = pre_gain
+        self.post_gain = post_gain
+        self.attack = attack
+        self.release = release
+        self.level_detector_prev_out = 9
+        self.gcp1 = self.threshold - self.knee_width/2
+        self.gcp2 = self.threshold + self.knee_width/2
+        self.gcp3 = (1/self.ratio - 1)/(2*self.knee_width)
+        self.gcp4 = self.threshold*(1 - 1/self.ratio)
+        self.atk = cmath.exp(-1/(self.attack*cfg.samplerate))
+        self.rel = cmath.exp(-1/(self.release*cfg.samplerate))
     
-    cdef calculate_gain(self, np.ndarray[ITYPE_t] audio_in):
-        cdef np.ndarray[FTYPE_t] level_db = self.linear_to_log(audio_in)
-        cdef np.ndarray[FTYPE_t] gain_computer_out = self.gain_computer(level_db)
-        cdef np.ndarray[FTYPE_t] odb3 = level_db - gain_computer_out
-        cdef np.ndarray[FTYPE_t] odb4 = self.level_detector(odb3)
-        cdef np.ndarray[FTYPE_t] gain_in_db = self.post_gain - odb4
-        cdef np.ndarray[FTYPE_t] gain_linear = self.log_to_linear(gain_in_db)
-        return gain_linear
-    # accepts an audio_level, a value that represents an audio signal's loudness in either db or abs.
-    # outputs
-    cdef level_detector(self, np.ndarray[FTYPE_t] audio_level):
-        cdef np.ndarray[FTYPE_t] output = np.zeros(audio_level.shape[0], dtype=FTYPE)
-        cdef int audio_level_length = audio_level.shape[0]
-        for i in range(audio_level_length):
-            if audio_level[i] > self.level_detector_prev_out:
-                output[i] = self.attack*(self.level_detector_prev_out - audio_level[i]) + audio_level[i]
+    cpdef gain_computer(self, np.ndarray[FTYPE_t] audio_lvl_in):
+        cdef np.ndarray[FTYPE_t] audio_lvl_out = np.zeros(cfg.buffer, dtype=np.double)
+        cdef int i
+        for i in range(cfg.buffer):
+            if audio_lvl_in[i] < self.gcp1:
+                audio_lvl_out[i] = audio_lvl_in[i]
+            elif audio_lvl_in[i] <= self.gcp2:
+                audio_lvl_out[i] = audio_lvl_in[i] + self.gcp3*cmath.pow((audio_lvl_in[i] - self.gcp1), 2)
+            elif audio_lvl_in[i] > self.gcp2:
+                audio_lvl_out[i] = audio_lvl_in[i]/self.ratio + self.gcp4
+        return audio_lvl_out
+ 
+    cpdef level_detector(self, np.ndarray[FTYPE_t] audio_lvl_in):
+        cdef np.ndarray[FTYPE_t] audio_lvl_out = np.zeros(cfg.buffer, dtype=np.double)
+        cdef double level_detector_prev_out
+        cdef int i
+        level_detector_prev_out = self.level_detector_prev_out
+        for i in range(cfg.buffer):
+            if audio_lvl_in[i] > level_detector_prev_out:
+                audio_lvl_out[i] = self.atk*(level_detector_prev_out - audio_lvl_in[i]) + audio_lvl_in[i]
             else:
-                output[i] = self.release*(self.level_detector_prev_out - audio_level[i]) + audio_level[i]
-            self.level_detector_prev_out = output[i]
-        return output
-        
-    # accepts an audio_level, a value that represents an audio signal's loudness in either db or abs.
-    cdef gain_computer(self, np.ndarray[FTYPE_t] audio_level):
-        cdef np.ndarray[FTYPE_t] output = np.zeros(audio_level.shape[0], dtype=FTYPE)
-        cdef int audio_level_length = audio_level.shape[0]
-        for i in range(audio_level_length):
-            if audio_level[i] < self.gc_param1:
-                output[i] = audio_level[i]
-            elif audio_level[i] <= self.gc_param2:
-                output[i] = audio_level[i] + self.gc_param3*cmath.pow(audio_level[i] - self.gc_param1, 2)
-            elif audio_level[i] > self.gc_param2:
-                output[i] = audio_level[i]/self.ratio + self.gc_param4
-        return output
+                audio_lvl_out[i] = self.rel*(level_detector_prev_out - audio_lvl_in[i]) + audio_lvl_in[i]
+            level_detector_prev_out = audio_lvl_out[i]
+        self.level_detector_prev_out = level_detector_prev_out
+        return audio_lvl_out
     
-    cdef linear_to_log(self, np.ndarray[ITYPE_t] linear_array):
-        cdef int linear_array_length = linear_array.shape[0]
-        cdef np.ndarray[FTYPE_t] db_array = np.zeros(linear_array.shape[0], dtype=FTYPE)
-        for i in range(linear_array_length):
-            if(linear_array[i]==0):
-                db_array[i] = -999999999999.9
+    cpdef linear_to_log(self, np.ndarray[FTYPE_t] audio_level_in):
+        cdef np.ndarray[FTYPE_t] audio_lvl_out = np.zeros(cfg.buffer, dtype=np.double)
+        cdef int i
+        for i in range(cfg.buffer):
+            if(audio_level_in[i]==0):
+                audio_lvl_out[i] = -99999
             else:
-                db_array[i] =cmath.log2(abs(linear_array[i])) - self.l2log_param1
-            asdf = 2
-        return db_array
+                audio_lvl_out[i] = 20*cmath.log10(abs(audio_level_in[i]))
+        return audio_lvl_out
     
-    # accepts a db value and then converts it to linear
-    cdef log_to_linear(self, np.ndarray[FTYPE_t] db_array):        
-        cdef int db_array_array_length = db_array.shape[0]
-        cdef np.ndarray[FTYPE_t] linear_array = np.zeros([db_array.shape[0]], dtype=FTYPE)
-        for i in range(db_array_array_length):
-            linear_array[i] = cmath.pow(2, db_array[i])
-        return linear_array
-    
-cdef class Compressor2(Compressor):
-    def compress(self, np.ndarray[ITYPE_t, ndim=2] audio_in):
-        cdef np.ndarray[ITYPE_t] audio_in_mono = audio_in[:,0] + audio_in[:,1]
-        cdef np.ndarray[FTYPE_t] gain_linear = self.calculate_gain(audio_in_mono)
-        cdef np.ndarray[FTYPE_t, ndim=2] audio_out = audio_in.astype(FTYPE)
-        audio_out[:, 0] *= gain_linear
-        audio_out[:, 1] *= gain_linear
-        return audio_out.astype(ITYPE)
+    cpdef log_to_linear(self, np.ndarray[FTYPE_t] audio_level_in):
+        cdef np.ndarray[FTYPE_t] audio_lvl_out = np.zeros(cfg.buffer, dtype=np.double)
+        for i in range(cfg.buffer):
+            audio_lvl_out[i] = cmath.pow(10, audio_level_in[i]/20)
+        return audio_lvl_out
