@@ -16,13 +16,13 @@ release = 0.2
 imps = ["leave this empty",
         "IMP Spring 04",
         "IMP Cabinet Model A"]
-wet = 1
+wet = 0.5
 dry = 0
 post = 1
 
 # equalizer variables
 lowpass_enabled = True
-lowpass_cutoff = 500
+lowpass_cutoff = 5000
 lowpass_order = 2
 
 highpass_enabled = False
