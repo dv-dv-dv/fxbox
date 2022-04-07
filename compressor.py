@@ -1,5 +1,6 @@
 import numpy as np
 import math
+
 # user imports
 import config as cfg
 import compressor_cy

@@ -2,7 +2,7 @@ import lcd_screen
 import numpy as np
 class FXBox:
     def __init__(self):
-        self.lcd = lcd_screen.lcd_screen("COM5")
+        self.lcd = lcd_screen.lcd_screen("COM6")
         self.comp = self.Menus.Compressor()
         self.conv = self.Menus.Convolver()
         self.eq = self.Menus.Equalizer()
@@ -625,7 +625,7 @@ class VerticalSlider:
             self.slider[i] = 0
         
 def main():
-    fxbox = FXBoxStateMachine()
+    fxbox = FXBox()
     fxbox.new_state(1)
     fxbox.new_state(1)
     fxbox.new_state(1)
