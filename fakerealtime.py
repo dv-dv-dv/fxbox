@@ -5,7 +5,7 @@ def main():
     
     ##user imports
     import config as cfg
-    import compressor_cy as compressor
+    import compressor
     import convolver
     import equalizer
     
@@ -16,11 +16,10 @@ def main():
     wfo.setnchannels(cfg.channels)
     wfo.setsampwidth(cfg.bytes_per_channel)
     wfo.setframerate(cfg.samplerate)
-    in_data = B'\x00\x00\x00'
-    out_data = B'\x00\x00\x00'
     in_data = wfi.readframes(cfg.buffer)
-    comp = compressor.Compressor2()
-    conv = convolver.Convolver()
+    
+    comp = compressor.Compressor()
+    conv = convolver.Convolver(impulse_number=1)
     equal = equalizer.Equalizer()
     count = 0
     
@@ -32,23 +31,15 @@ def main():
         x = np.frombuffer(in_data, dtype=np.int16)
         x = x.reshape(len(in_data)//(cfg.channels*cfg.bytes_per_channel),cfg.channels)
         # processing goes here
-        test1 = x
-        # test1 = comp.compress(test1)
-        # test1 = equal.equalize(test1)
+        test1 = x/2**15
+        test1 = comp.compress(test1)
+        test1 = equal.equalize(test1)
         test1 = conv.convolve(test1)
-        if(test1.shape[0]==0):
-            asdf = 123
-        
-        # y = np.stack((test1, test1), axis=1)
-        
-        y = test1
-        if count==255:
-            asdf = 123
-        # print(count)
+        if(np.max(test1)>1):
+            print("clipping!")
         # processing ends here
+        y = (test1*2**15).astype(np.int16)
         out_data = y.tobytes()
-        # write out_data to output wav
-        # get new data from input wav file
         exempt_time -= time.perf_counter()
         wfo.writeframes(out_data)
         in_data = wfi.readframes(cfg.buffer)
