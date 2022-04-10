@@ -9,14 +9,16 @@ ctypedef np.int16_t ITYPE_t
 FTYPE = np.double;   # float type
 ctypedef np.double_t FTYPE_t
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
 cdef class Equalizer:
     cdef double[:, :] x, y
     cdef double[:] b, a, b_flipped, a_flipped
     cdef int nm_max, buffer_size
-    def __init__(self, a, b):
+    def __init__(self, b, a):
         self.a = a
         self.b = b
-        self.a_flipped = np.flip(a)
+        self.a_flipped = np.flip(np.copy(a))
         self.a_flipped[self.nm_max] = 0
         self.b_flipped = np.flip(b)
         self.nm_max = max(a.shape[0], b.shape[0]) - 1
