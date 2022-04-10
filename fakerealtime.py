@@ -12,14 +12,14 @@ def main():
     in_file = 'guitar_sample16'
     wfi = wave.open(in_file + '.wav', 'rb')
     wfo = wave.open(in_file + '_pyout.wav', 'wb')
-    
+    wave_input_blength = wfi.getnframes()//cfg.buffer_size
     wfo.setnchannels(cfg.channels)
     wfo.setsampwidth(cfg.bytes_per_channel)
     wfo.setframerate(cfg.samplerate)
     in_data = wfi.readframes(cfg.buffer_size)
     
     comp = compressor.Compressor()
-    conv = convolver.Convolver(impulse_number=1)
+    conv = convolver.Convolver()
     equal = equalizer.Equalizer()
     count = 0
     
@@ -32,10 +32,12 @@ def main():
         x = x.reshape(cfg.buffer_size, 2)
         # processing goes here
         test1 = x/2**15
-        test1 = comp.compress(test1)
+        # test1 = comp.compress(test1)
         test1 = equal.equalize(test1)
-        test1 = conv.convolve(test1)
-        if(np.max(test1)>1):
+        # test1 = conv.convolve(test1)
+        if count == int(wave_input_blength*2/4):
+            conv.update_params(imp_number=3, dry=0.5)
+        if np.max(test1) > 1:
             print("clipping!")
         # processing ends here
         y = (test1*2**15).astype(np.int16)
@@ -50,6 +52,7 @@ def main():
     wfi.close()
     wfo.close()
     print("fake real time finished in", round(end - start1 - exempt_time, 3), "seconds")
+    print("looped", count, "times")
     
 if __name__ == "__main__":
     main()

@@ -17,63 +17,43 @@ class Convolver:
             self.rfft_length = self.length//2 + 1
             self.offset = offset
             self.filter_rfft = np.fft.rfft(filter_partition, self.length, axis=0)
-            self.time_spent_doing_rffts = 0
-            self.time_spent_doing_irffts = 0
         
         def convolve(self, audio_in):
-            self.time_spent_doing_rffts -= time.perf_counter()
             audio_in_rfft = np.fft.rfft(audio_in, self.length, axis=0)
-            self.time_spent_doing_rffts += time.perf_counter()
-            self.time_spent_doing_irffts -= time.perf_counter()
             audio_out = np.fft.irfft(audio_in_rfft*self.filter_rfft, axis=0)
-            self.time_spent_doing_irffts += time.perf_counter()
             return audio_out
         
         def convolve_rfft(self, audio_in_rfft):
-            self.time_spent_doing_irffts -= time.perf_counter()
             audio_out = np.fft.irfft(audio_in_rfft*self.filter_rfft, axis=0)
-            self.time_spent_doing_irffts += time.perf_counter()
             return audio_out
         
-    def __init__(self, impulse_number=1, realtime=False):
+    def __init__(self, imp_number=None, wet=None, dry=None, post=None, realtime=False):
         print("initializing convoler...")
-        self.buffer_size = cfg.buffer_size
-        impulse = self.import_from_wave("impulses/" + cfg.imps[impulse_number])
         self.channels = 2 # only two channels is verified to be working
-        self.set_impulse(impulse)
+        self.buffer_size = cfg.buffer_size
+        self.update_params(cfg.imp_number, cfg.wet, cfg.dry, cfg.post, reinit=False)
+        self.update_params(imp_number, wet, dry, post)
         self.realtime=realtime
-        self.count = 0
-        self.abs_count = 0
-        self.number_of_rffts = 0
-        self.number_of_irffts = 0
-        self.time_spent_doing_rffts = 0
-        self.time_spent_doing_irffts = 0
-        self.time_spent_in_convolver = 0
-        self.time_spent_in_add_to_convolution_buffer = 0
-        self.time_spent_in_get_from_convolution_buffer = 0
         if(self.complex_convolution == True):
-            self.time_spent_in_get_n_previous_buffers = 0
-            self.time_spent_doing_complex_convolution = 0
             self.convolution_queue = queue.PriorityQueue(-1)
             self.worker_process = threading.Thread(target=self.convolution_worker, daemon=True)
             self.worker_process.start()
-        
-    def print_performance_stats(self):
-        print("number of rffts:", self.number_of_rffts)
-        print("number of irffts:", self.number_of_irffts)
-        print("total number of rffts and irffts:", self.number_of_rffts + self.number_of_irffts)
-        print("time spent doing rffts:", round(self.time_spent_doing_rffts, 4))
-        print("time spent doing irffts:", round(self.time_spent_doing_irffts, 4))
-        print("total time spent doing rffts and irffts:", round(self.time_spent_doing_rffts + self.time_spent_doing_irffts, 4))
-        print("time spent in add to convolution buffer", round(self.time_spent_in_add_to_convolution_buffer, 4))
-        print("time spent in get grom convolution buffer", round(self.time_spent_in_get_from_convolution_buffer, 4))
-        if(self.complex_convolution==True):
-            print("time spent in get n previous buffers", round(self.time_spent_in_get_n_previous_buffers, 4))
-            print("time spent scheduling convolutions", round(self.time_spent_doing_complex_convolution, 4))
-        print("total time spent in convolver", round(self.time_spent_in_convolver, 4))
-        print("ratio of time spent doing rffts and irffts and time spent in convolver", round((self.time_spent_doing_irffts + self.time_spent_doing_rffts)/self.time_spent_in_convolver, 4))
-        
-    # this function does the necessary work in order to get the impulse ready for use
+            
+    def update_params(self, imp_number=None, wet=None, dry=None, post=None, reinit=True):
+        if imp_number != None:
+            self.imp_number = imp_number
+        if wet != None:
+            self.wet = wet
+        if dry != None:
+            self.dry = dry
+        if post != None:
+            self.post = post
+        if reinit==True:
+                self.update_impulse()
+    def update_impulse(self):
+        impulse = self.import_from_wave("impulses/" + cfg.imps[self.imp_number])
+        self.set_impulse(impulse)
+                
     def set_impulse(self, impulse):
         # set first filter
         first_filter_blength = 2**cfg.first_filter_power - 1
@@ -104,7 +84,9 @@ class Convolver:
             self.complex_convolution = False
             self.convolution_buffer = np.zeros((4*first_filter_length, self.channels), dtype=np.double)
             self.convolution_buffer_length = 4*first_filter_blength
-    
+        self.count = 0
+        self.abs_count = 0
+            
     def partition_filter(self, first_filter_blength, filter_length, height, n_cap, n_step):
         if height < 2**n_step - 1:
             height = 2**n_step - 1
@@ -141,33 +123,30 @@ class Convolver:
         offsets = offsets[0:i]
         convolution_buffer_length = math.ceil(np.sum(filter_size_in_buffers)/buffers_needed[-1])*buffers_needed[-1]
         
-        print("filter number\tbuffers needed\tfilter size\t\toffset")
-        for i in range(buffers_needed.shape[0]):
-            print(i, end="\t\t\t\t")
-            print(buffers_needed[i], end="\t\t\t\t")
-            print(filter_size_in_buffers[i], end="\t\t\t\t")
-            print(offsets[i])
+        print_partitions = False
+        if print_partitions is True:
+            print("filter number\tbuffers needed\tfilter size\t\toffset")
+            for i in range(buffers_needed.shape[0]):
+                print(i, end="\t\t\t\t")
+                print(buffers_needed[i], end="\t\t\t\t")
+                print(filter_size_in_buffers[i], end="\t\t\t\t")
+                print(offsets[i])
         return buffers_needed, filter_size_in_buffers, filter_indices, offsets, convolution_buffer_length
     
     def convolve(self, audio_in):
-        self.time_spent_in_convolver -= time.perf_counter()
         if(self.complex_convolution == True):
-            self.time_spent_doing_complex_convolution -= time.perf_counter()
             bufferpos = self.buffer_size*(self.count%self.max_buffers_needed)
             self.previous_buffers[bufferpos:bufferpos + self.buffer_size, :] = audio_in
             for i in range(self.number_of_filters):
                 if (self.count + 1)%self.filt[i].buffers_needed != 0: break
                 self.convolution_queue.put((self.abs_count + self.filt[i].offset, self.count, i))
-            self.time_spent_doing_complex_convolution += time.perf_counter()
-            
             if self.realtime==False:
                 self.convolution_queue.join()
                 
         self.add_to_convolution_buffer(self.first_filter.convolve(audio_in), 0, self.count)
-        audio_out = cfg.post*(cfg.wet*self.get_from_convolution_buffer() + cfg.dry*audio_in)
+        audio_out = self.post*(self.wet*self.get_from_convolution_buffer() + self.dry*audio_in)
         self.abs_count += 1
         self.count = (self.abs_count)%self.convolution_buffer_length
-        self.time_spent_in_convolver += time.perf_counter()
         return audio_out
     
     def convolution_worker(self):
@@ -203,12 +182,9 @@ class Convolver:
 
                     if(spectra_needed==True):
                         audio_to_filter = self.get_n_previous_buffers(filt[i].buffers_needed, count)
-                        self.time_spent_doing_rffts -= time.perf_counter()
                         audio_to_filter_rfft = np.fft.rfft(audio_to_filter, filt[i].length, axis=0)
-                        self.time_spent_doing_rffts += time.perf_counter()
                         spectras[index].spectra = audio_to_filter_rfft
                         spectras[index].count = count
-                        self.number_of_rffts += 1
 
                 prev_buffers_needed = filt[i].buffers_needed
                 prev_count = count
@@ -217,18 +193,13 @@ class Convolver:
             self.convolution_queue.task_done()
             
     def get_from_convolution_buffer(self):
-        self.time_spent_in_get_from_convolution_buffer -= time.perf_counter()
         index1 = (self.count)*self.buffer_size
         index2 = (self.count + 1)*self.buffer_size
         audio_out = np.copy(self.convolution_buffer[index1:index2, :])
         self.convolution_buffer[index1:index2, :] = 0.0
-        self.time_spent_in_get_from_convolution_buffer += time.perf_counter()
         return audio_out
 
     def add_to_convolution_buffer(self, audio_in, offset, count):
-        if(np.max(audio_in)>0):
-            sasdasd = 5
-        self.time_spent_in_add_to_convolution_buffer -= time.perf_counter()
         index1 = ((count + offset)%self.convolution_buffer_length)*self.buffer_size
         index2 = index1 + audio_in.shape[0]
         if index2 > self.convolution_buffer.shape[0]:
@@ -238,10 +209,8 @@ class Convolver:
             self.convolution_buffer[0:diff2, :] += audio_in[diff1:diff1 + diff2, :]
         else:
             self.convolution_buffer[index1:index2, :] += audio_in
-        self.time_spent_in_add_to_convolution_buffer += time.perf_counter()
 
     def get_n_previous_buffers(self, n, count):
-        self.time_spent_in_get_n_previous_buffers -= time.perf_counter()
         count_pb = count%self.max_buffers_needed
         index1 = (count_pb + 1 - n)*self.buffer_size
         index2 = (count_pb + 1)*self.buffer_size
@@ -254,7 +223,6 @@ class Convolver:
             n_previous_buffers[diff1:diff1 + diff2, :] = self.previous_buffers[0:diff2, :]
         else:
             n_previous_buffers = self.previous_buffers[index1:index2, :]
-        self.time_spent_in_get_n_previous_buffers += time.perf_counter()
         return n_previous_buffers
     
     def import_from_wave(self, wave_file):
@@ -271,6 +239,6 @@ class Convolver:
             impulse = impulse_temp
         else:
             impulse = impulse.reshape(-1, 2)
-        print(np.max(impulse))
         print("impulse is", round(impulse.shape[0]/44100, 2), "seconds long")
-        return impulse/2**15
+        impulse = impulse/2**15
+        return impulse

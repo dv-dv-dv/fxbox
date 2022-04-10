@@ -5,35 +5,41 @@ channels = 2
 
 # compressor variables
 threshold = -40
-ratio = 7
-knee_width = 1
+ratio = 30
+knee_width = 10
 pre_gain = 0
-post_gain = 18
-attack = 0.015
+post_gain = 15
+attack = 0.0018
 release = 0.2
+rms = True
+hold = 0.01
 
 # convolver variables
 imps = ["leave this empty",
         "IMP Spring 04",
-        "IMP Cabinet Model A"]
-wet = 0.5
-dry = 0
-post = 1
+        "IMP Spring 05",
+        "IMP Cabinet Model A",
+        "IMP Cabinet Model B"]
+
+imp_number = 1
+wet = 1
+dry = 1
+post = 0.5
 
 # equalizer variables
-lowpass_enabled = True
-lowpass_cutoff = 5000
-lowpass_order = 2
+lpf_fc = 10000
+lpf_N = 2
+lpf_en= True
 
-highpass_enabled = False
-highpass_cutoff = 100
-highpass_order = 2
+hpf_fc = 100
+hpf_N = 2
+hpf_en = True
 
-peaking_enabled = [False, False, False]
-peaking_gain = [5, 5, 5] # in db
-peaking_cutoff = [100, 1000, 10000]
-peaking_bandwidth = []
-peaking_order = [1, 1, 1] # multiplied by 2
+bll_fgm = 1000
+bll_N = 1
+bll_gdb = 6
+bll_bfac = 0.5
+bll_en = True
 
 # convolver engine variables
 # do not touch, probably

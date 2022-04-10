@@ -53,6 +53,7 @@ cdef class Compressor:
                 audio_lvl_out[i] = self.gcp3 + audio_lvl_in[i]*self.gcp4
         return np.asarray(audio_lvl_out)
     
+
     cpdef level_detector(self, double[:] audio_lvl_in):
         cdef double[:] audio_lvl_out = np.zeros(self.buffer_size, dtype=np.double)
         cdef double ldpo, audio_lvl_in_i, audio_lvl_out_i
