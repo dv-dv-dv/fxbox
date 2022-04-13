@@ -23,9 +23,10 @@ The equalizer includes and lowpass, highpass, and two peaking filters. These low
 
 The filtering is done by an algorithm implementing a direct II transpose structure which was coded and implemented using Cython.
 
-* real-time meaning that an audio sample is processed and then given to the ADC within a single buffer.
-
 References
 [1] Digital Dynamic Range Compressor Design by D. Giannoulis, M. Massberg, J.D. Reiss
+
 [2] Efficient Convolution without Input-Output Delay by W.G. Gardner
+
 [3] Partitioned Convolution Algorithms for Real-time Auralization by F. Wefers
+
