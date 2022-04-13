@@ -1,4 +1,10 @@
 # fxbox
+Notes about the processing in general
+
+All of the processing is done using auidio in the format of 64 bit doubles normalized to be between -1 and 1. So if the audio stream is in a 16 bit integer format the audio stream must be divided by 2^15 in order for the processing to work.
+
+The audio effects are hard coded for two channel audio and the effects have only been tested on 44.1kHz audio.
+
 Compressor
 
 The compressor implements the log domain configuration shown by Giannoulis et al. The log domain configuration is attractive because it allows for arbitrary an arbitrary static gain curve.
@@ -17,6 +23,8 @@ Some of the optimizations used in the convolver are: performing convolutions usi
 
 The main area where the convolver could be improved upon is by utilizing multiprocessing/multithreading but Python is not very good at multithreading.
 
+Note: impulse responses must be 16 bit 44.1kHz wav files with no more than 2 channels.
+
 Equalizer
 
 The equalizer includes and lowpass, highpass, and two peaking filters. These lowpass and highpass are designed using the butter() function in SciPy. The peaking filter is designed by designing a bandpass filter and then adding the bandpass filter to an allpass filter with an option to apply gain in dB at the center frequency of the bandpass (0 dB gain means that the peaking filter becomes an allpass filter).
@@ -24,6 +32,7 @@ The equalizer includes and lowpass, highpass, and two peaking filters. These low
 The filtering is done by an algorithm implementing a direct II transpose structure which was coded and implemented using Cython.
 
 References
+
 [1] Digital Dynamic Range Compressor Design by D. Giannoulis, M. Massberg, J.D. Reiss
 
 [2] Efficient Convolution without Input-Output Delay by W.G. Gardner
