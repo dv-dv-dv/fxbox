@@ -1,13 +1,13 @@
 # fxbox
 Notes about the processing in general
 
-All of the processing is done using auidio in the format of 64 bit doubles normalized to be between -1 and 1. So if the audio stream is in a 16 bit integer format the audio stream must be divided by 2^15 in order for the processing to work.
+All of the processing is done using audio in the format of 64 bit doubles normalized to be between -1 and 1. So if the audio stream is in a 16 bit integer format the audio stream must be divided by 2^15 in order for the processing to work.
 
 The audio effects are hard coded for two channel audio and the effects have only been tested on 44.1kHz audio.
 
 Compressor
 
-The compressor implements the log domain configuration shown by Giannoulis et al. The log domain configuration is attractive because it allows for arbitrary an arbitrary static gain curve.
+The compressor implements the log domain feed-forward configuration shown by Giannoulis et al. The log domain configuration is attractive because it allows for arbitrary an arbitrary static gain curve.
 
 The gain computer, level detector, log to linear, and linear to log system functions are implemented in Cython.
 
