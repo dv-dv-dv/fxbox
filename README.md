@@ -1,4 +1,18 @@
 # fxbox
+How to use the various fxbox effects
+
+1. Setup
+
+Requires python (tested only on 3.9+) with packages cython, numpy, and scipy.
+
+Run the command "python setup.py build_ext --inplace" without quotes to build the cython portions of the program
+
+2. Using the effects
+
+The config file determines the default values of the effects and also has master parameters such as buffer size, sample rate, etc. Do not change the sample rate from 44100, the bytes per channel from 2 and channel from 2, as they have not been properly implemented yet.
+
+Read the "Notes about the processing in general" section below and look at fakerealtime.py to get an idea of how to use the effects.
+
 Notes about the processing in general
 
 All of the processing is done using audio in the format of 64 bit doubles normalized to be between -1 and 1. So if the audio stream is in a 16 bit integer format the audio stream must be divided by 2^15 in order for the processing to work.
