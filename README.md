@@ -1,4 +1,5 @@
 # fxbox
+Note: project is not finished yet
 How to use the various fxbox effects
 
 1. Setup
