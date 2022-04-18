@@ -28,7 +28,6 @@ class Convolver:
             return audio_out
         
     def __init__(self, imp_number=None, wet=None, dry=None, post=None, realtime=False):
-        print("initializing convoler...")
         self.channels = 2 # only two channels is verified to be working
         self.buffer_size = cfg.buffer_size
         self.update_params(cfg.imp_number, cfg.wet, cfg.dry, cfg.post, reinit=False)
@@ -80,7 +79,6 @@ class Convolver:
             self.previous_buffers = np.zeros((self.buffer_size*buffers_needed[-1], self.channels), dtype=np.double)
             self.convolution_buffer = np.zeros((convolution_buffer_length*self.buffer_size, self.channels), dtype=np.double)
         else:
-            print("impulse is short, disabling advanced convolver features")
             self.complex_convolution = False
             self.convolution_buffer = np.zeros((4*first_filter_length, self.channels), dtype=np.double)
             self.convolution_buffer_length = 4*first_filter_blength
@@ -123,7 +121,7 @@ class Convolver:
         offsets = offsets[0:i]
         convolution_buffer_length = math.ceil(np.sum(filter_size_in_buffers)/buffers_needed[-1])*buffers_needed[-1]
         
-        print_partitions = False
+        print_partitions = True
         if print_partitions is True:
             print("filter number\tbuffers needed\tfilter size\t\toffset")
             for i in range(buffers_needed.shape[0]):
@@ -233,12 +231,10 @@ class Convolver:
         impulse = np.frombuffer(wave_bytes, dtype=np.int16)
         wfi.close()
         if(wfi.getnchannels()==1):
-            print("impulse is mono, copying to two channels")
             impulse_temp = np.zeros((impulse.shape[0], 2), dtype=np.int16)
             impulse_temp[:, 0] = impulse_temp[:, 1] = impulse
             impulse = impulse_temp
         else:
             impulse = impulse.reshape(-1, 2)
-        print("impulse is", round(impulse.shape[0]/44100, 2), "seconds long")
         impulse = impulse/2**15
         return impulse

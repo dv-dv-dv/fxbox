@@ -1,20 +1,25 @@
-import lcd_screen
 import numpy as np
+import lcd_screen
+import config as cfg
+
+lcd = lcd_screen.lcd_screen("COM6")
+m = '@'
+moff = 14
+voff = 16
 class FXBox:
     def __init__(self):
-        self.lcd = lcd_screen.lcd_screen("COM6")
-        self.comp = self.Menus.Compressor()
-        self.conv = self.Menus.Convolver()
-        self.eq = self.Menus.Equalizer()
-        self.mm = self.Menus()
+        self.m = self.Menus()
         self.no_states = 0
         self.state = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-        self.def_valid_states = np.array([True, True, True, True, True, False, False, False, False, False])
+        self.def_valid_states = np.array([True, True, True, True, True, False, False, False, True, True, False])
         self.valid_states = np.copy(self.def_valid_states)
-        self.marker = "@"
         self.update_state()
+        self.process = True
         
     def new_state(self, new_state):
+        if self.state[self.no_states - 1] == 8 or self.state[self.no_states - 1] == 9:
+            self.state[self.no_states - 1] = 0
+            self.no_states -= 1
         if self.valid_states[new_state] == True:
             if new_state != 0:
                 self.state[self.no_states] = new_state
@@ -22,575 +27,211 @@ class FXBox:
             else:
                 if self.no_states > 0: self.no_states -= 1
                 self.state[self.no_states] = 0
-            self.update_state()
         
+        print(self.no_states)
         print(self.valid_states)
         print(self.state)
     
     
-    # if self.state[d] == 1:
-    #     pass
-    # elif self.state[d] == 2:
-    #     pass
-    # elif self.state[d] == 3:
-    #     pass
-    # elif self.state[d] == 4:
-    #     pass
-    # elif self.state[d] != 0:
-    #     self.new_state(0)
-        
+        # if   self.state[d] == 1:
+        #     pass
+        # elif self.state[d] == 2:
+        #     pass
+        # elif self.state[d] == 3:
+        #     pass
+        # elif self.state[d] == 4:
+        #     pass
+
     def update_state(self):
-        d = 0
         self.valid_states = np.copy(self.def_valid_states)
-        if self.state[d] == 1:
-            d = 1
-            self.print_screen(self.comp.main_menu())
-            self.lcd.pos_prints(15, 1, self.comp.thresh.update_value(0))
-            self.lcd.pos_prints(15, 2, self.comp.ratio.update_value(0))
-            self.lcd.pos_prints(15, 3, self.comp.atk.update_value(0))
-            self.lcd.pos_prints(15, 4, self.comp.post.update_value(0))
-            if self.state[d] == 1:
-                d = 2
-                self.valid_states[8] = self.valid_states[9] = True
-                self.lcd.pos_prints(15, 1, self.comp.thresh.update_value(0))
-                self.lcd.pos_prints(13, 1, self.marker)
-                if self.state[d] == 8:
-                    self.lcd.pos_prints(15, 1, self.comp.thresh.update_value(1))
-                    self.new_state(0)
-                elif self.state[d] == 9:
-                    self.lcd.pos_prints(15, 1, self.comp.thresh.update_value(-1))
-                    self.new_state(0)
-                elif self.state[d] != 0:
-                    a = self.state[d]
-                    self.new_state(0)
-                    if (a > 0) & (a < 5):
-                        self.new_state(0)
-                        self.new_state(a)
-            elif self.state[d] == 2:
-                d = 2
-                self.valid_states[8] = self.valid_states[9] = True
-                self.lcd.pos_prints(15, 2, self.comp.ratio.update_value(0))
-                self.lcd.pos_prints(13, 2, self.marker)
-                if self.state[d] == 8:
-                    self.lcd.pos_prints(15, 2, self.comp.ratio.update_value(1))
-                    self.new_state(0)
-                elif self.state[d] == 9:
-                    self.lcd.pos_prints(15, 2, self.comp.ratio.update_value(-1))
-                    self.new_state(0)
-                elif self.state[d] != 0:
-                    a = self.state[d]
-                    self.new_state(0)
-                    if (a > 0) & (a < 5):
-                        self.new_state(0)
-                        self.new_state(a)
-            elif self.state[d] == 3:
-                d = 2
-                self.valid_states[8] = self.valid_states[9] = True
-                self.lcd.pos_prints(15, 3, self.comp.atk.update_value(0))
-                self.lcd.pos_prints(13, 3, self.marker)
-                if self.state[d] == 8:
-                    self.lcd.pos_prints(15, 3, self.comp.atk.update_value(1))
-                    self.new_state(0)
-                elif self.state[d] == 9:
-                    self.lcd.pos_prints(15, 3, self.comp.atk.update_value(-1))
-                    self.new_state(0)
-                elif self.state[d] != 0:
-                    a = self.state[d]
-                    self.new_state(0)
-                    if (a > 0) & (a < 5):
-                        self.new_state(0)
-                        self.new_state(a)
-            elif self.state[d] == 4:
-                d = 2
-                self.valid_states[8] = self.valid_states[9] = True
-                self.lcd.pos_prints(15, 4, self.comp.post.update_value(0))
-                self.lcd.pos_prints(13, 4, self.marker)
-                if self.state[d] == 8:
-                    self.lcd.pos_prints(15, 4, self.comp.post.update_value(1))
-                    self.new_state(0)
-                elif self.state[d] == 9:
-                    self.lcd.pos_prints(15, 4, self.comp.post.update_value(-1))
-                    self.new_state(0)
-                elif self.state[d] != 0:
-                    a = self.state[d]
-                    self.new_state(0)
-                    if (a > 0) & (a < 5):
-                        self.new_state(0)
-                        self.new_state(a)
-            
-        elif self.state[d] == 2:
-            d = 1
-            self.print_screen(self.conv.main_menu())
-            self.lcd.pos_prints(15, 1, self.conv.imp.update_value(0))
-            self.lcd.pos_prints(15, 2, self.conv.wet.update_value(0))
-            self.lcd.pos_prints(15, 3, self.conv.dry.update_value(0))
-            self.lcd.pos_prints(15, 4, self.conv.post.update_value(0))
-            if self.state[d] == 1:
-                d = 2
-                self.valid_states[8] = self.valid_states[9] = True
-                self.lcd.pos_prints(15, 1, self.conv.imp.update_value(0))
-                self.lcd.pos_prints(13, 1, self.marker)
-                if self.state[d] == 8:
-                    self.lcd.pos_prints(15, 1, self.conv.imp.update_value(1))
-                    self.new_state(0)
-                elif self.state[d] == 9:
-                    self.lcd.pos_prints(15, 1, self.conv.imp.update_value(-1))
-                    self.new_state(0)
-                elif self.state[d] != 0:
-                    a = self.state[d]
-                    self.new_state(0)
-                    if (a > 0) & (a < 5):
-                        self.new_state(0)
-                        self.new_state(a)
-            elif self.state[d] == 2:
-                d = 2
-                self.valid_states[8] = self.valid_states[9] = True
-                self.lcd.pos_prints(15, 2, self.conv.wet.update_value(0))
-                self.lcd.pos_prints(13, 2, self.marker)
-                if self.state[d] == 8:
-                    self.lcd.pos_prints(15, 2, self.conv.wet.update_value(1))
-                    self.new_state(0)
-                elif self.state[d] == 9:
-                    self.lcd.pos_prints(15, 2, self.conv.wet.update_value(-1))
-                    self.new_state(0)
-                elif self.state[d] != 0:
-                    a = self.state[d]
-                    self.new_state(0)
-                    if (a > 0) & (a < 5):
-                        self.new_state(0)
-                        self.new_state(a)
-            elif self.state[d] == 3:
-                d = 2
-                self.valid_states[8] = self.valid_states[9] = True
-                self.lcd.pos_prints(15, 3, self.conv.dry.update_value(0))
-                self.lcd.pos_prints(13, 3, self.marker)
-                if self.state[d] == 8:
-                    self.lcd.pos_prints(15, 3, self.conv.dry.update_value(1))
-                    self.new_state(0)
-                elif self.state[d] == 9:
-                    self.lcd.pos_prints(15, 3, self.conv.dry.update_value(-1))
-                    self.new_state(0)
-                elif self.state[d] != 0:
-                    a = self.state[d]
-                    self.new_state(0)
-                    if (a > 0) & (a < 5):
-                        self.new_state(0)
-                        self.new_state(a)
-            elif self.state[d] == 4:
-                d = 2
-                self.valid_states[8] = self.valid_states[9] = True
-                self.lcd.pos_prints(15, 4, self.conv.post.update_value(0))
-                self.lcd.pos_prints(13, 4, self.marker)
-                if self.state[d] == 8:
-                    self.lcd.pos_prints(15, 4, self.conv.post.update_value(1))
-                    self.new_state(0)
-                elif self.state[d] == 9:
-                    self.lcd.pos_prints(15, 4, self.conv.post.update_value(-1))
-                    self.new_state(0)
-                elif self.state[d] != 0:
-                    a = self.state[d]
-                    self.new_state(0)
-                    if (a > 0) & (a < 5):
-                        self.new_state(0)
-                        self.new_state(a)
+        self.valid_states[8:10] = False
+        self.valid_states[4] = False
+        if self.state[0] == 0:
+            self.m.mm()
+        elif self.state[0] == 3:
+            self.m.p[3].mm()
+            self.valid_states[4] = True
+            if self.state[1] != 0:
+                if self.state[1] == 3 or self.state[1] ==4:
+                    self.valid_states[4] = True                
+                else:
+                    self.valid_states[4] = False
+                return self.value_menu(self.m.p[self.state[0]], offset=1), self.state[0:3]
+        # compressor menu
+        elif self.state[0] != 0:
+            self.valid_states[4] = True
+            return self.value_menu(self.m), self.state[0:2]
+        return None, None
                 
-        elif self.state[d] == 3: 
-            d = 1
-            self.print_screen(self.eq.main_menu())
-            if self.state[d] == 1:
-                d = 2
-                self.valid_states[4] = False
-                self.print_screen(self.eq.lowpass())
-                self.lcd.pos_prints(15, 1, self.eq.lpf_enabled.update_value(0))
-                self.lcd.pos_prints(15, 2, self.eq.lpf_cutoff.update_value(0))
-                self.lcd.pos_prints(15, 3, self.eq.lpf_order.update_value(0))
-                if self.state[d] == 1:
-                    d = 3
-                    self.valid_states[8] = self.valid_states[9] = True
-                    self.lcd.pos_prints(15, 1, self.eq.lpf_enabled.update_value(0))
-                    self.lcd.pos_prints(13, 1, self.marker)
-                    if self.state[d] == 8:
-                        self.lcd.pos_prints(15, 1, self.eq.lpf_enabled.update_value(1))
-                        self.new_state(0)
-                    elif self.state[d] == 9:
-                        self.lcd.pos_prints(15, 1, self.eq.lpf_enabled.update_value(-1))
-                        self.new_state(0)
-                    elif self.state[d] != 0:
-                        a = self.state[d]
-                        self.new_state(0)
-                        if (a > 0) & (a < 5):
-                            self.new_state(0)
-                            self.new_state(a)
-                elif self.state[d] == 2:
-                    d = 3
-                    self.valid_states[8] = self.valid_states[9] = True
-                    self.lcd.pos_prints(15, 2, self.eq.lpf_cutoff.update_value(0))
-                    self.lcd.pos_prints(13, 2, self.marker)
-                    if self.state[d] == 8:
-                        self.lcd.pos_prints(15, 2, self.eq.lpf_cutoff.update_value(1))
-                        self.new_state(0)
-                    elif self.state[d] == 9:
-                        self.lcd.pos_prints(15, 2, self.eq.lpf_cutoff.update_value(-1))
-                        self.new_state(0)
-                    elif self.state[d] != 0:
-                        a = self.state[d]
-                        self.new_state(0)
-                        if (a > 0) & (a < 5):
-                            self.new_state(0)
-                            self.new_state(a)
-                elif self.state[d] == 3:
-                    d = 3
-                    self.valid_states[8] = self.valid_states[9] = True
-                    self.lcd.pos_prints(15, 3, self.eq.lpf_order.update_value(0))
-                    self.lcd.pos_prints(13, 3, self.marker)
-                    if self.state[d] == 8:
-                        self.lcd.pos_prints(15, 3, self.eq.lpf_order.update_value(1))
-                        self.new_state(0)
-                    elif self.state[d] == 9:
-                        self.lcd.pos_prints(15, 3, self.eq.lpf_order.update_value(-1))
-                        self.new_state(0)
-                    elif self.state[d] != 0:
-                        a = self.state[d]
-                        self.new_state(0)
-                        if (a > 0) & (a < 5):
-                            self.new_state(0)
-                            self.new_state(a) 
-            elif self.state[d] == 2:
-                d = 2
-                self.valid_states[4] = False
-                self.print_screen(self.eq.highpass())
-                self.lcd.pos_prints(15, 1, self.eq.hpf_enabled.update_value(0))
-                self.lcd.pos_prints(15, 2, self.eq.hpf_cutoff.update_value(0))
-                self.lcd.pos_prints(15, 3, self.eq.hpf_order.update_value(0))
-                if self.state[d] == 1:
-                    d = 3
-                    self.valid_states[8] = self.valid_states[9] = True
-                    self.lcd.pos_prints(15, 1, self.eq.hpf_enabled.update_value(0))
-                    self.lcd.pos_prints(13, 1, self.marker)
-                    if self.state[d] == 8:
-                        self.lcd.pos_prints(15, 1, self.eq.hpf_enabled.update_value(1))
-                        self.new_state(0)
-                    elif self.state[d] == 9:
-                        self.lcd.pos_prints(15, 1, self.eq.hpf_enabled.update_value(-1))
-                        self.new_state(0)
-                    elif self.state[d] != 0:
-                        a = self.state[d]
-                        self.new_state(0)
-                        if (a > 0) & (a < 5):
-                            self.new_state(0)
-                            self.new_state(a)
-                elif self.state[d] == 2:
-                    d = 3
-                    self.valid_states[8] = self.valid_states[9] = True
-                    self.lcd.pos_prints(15, 2, self.eq.hpf_cutoff.update_value(0))
-                    self.lcd.pos_prints(13, 2, self.marker)
-                    if self.state[d] == 8:
-                        self.lcd.pos_prints(15, 2, self.eq.hpf_cutoff.update_value(1))
-                        self.new_state(0)
-                    elif self.state[d] == 9:
-                        self.lcd.pos_prints(15, 2, self.eq.hpf_cutoff.update_value(-1))
-                        self.new_state(0)
-                    elif self.state[d] != 0:
-                        a = self.state[d]
-                        self.new_state(0)
-                        if (a > 0) & (a < 5):
-                            self.new_state(0)
-                            self.new_state(a)
-                elif self.state[d] == 3:
-                    d = 3
-                    self.valid_states[8] = self.valid_states[9] = True
-                    self.lcd.pos_prints(15, 3, self.eq.hpf_order.update_value(0))
-                    self.lcd.pos_prints(13, 3, self.marker)
-                    if self.state[d] == 8:
-                        self.lcd.pos_prints(15, 3, self.eq.hpf_order.update_value(1))
-                        self.new_state(0)
-                    elif self.state[d] == 9:
-                        self.lcd.pos_prints(15, 3, self.eq.hpf_order.update_value(-1))
-                        self.new_state(0)
-                    elif self.state[d] != 0:
-                        a = self.state[d]
-                        self.new_state(0)
-                        if (a > 0) & (a < 5):
-                            self.new_state(0)
-            elif self.state[d] == 3:
-                d = 2
-                self.print_screen(self.eq.bandpass())
-                self.lcd.pos_prints(15, 1, self.eq.bpf1_gain.update_value(0))
-                self.lcd.pos_prints(15, 2, self.eq.bpf1_center.update_value(0))
-                self.lcd.pos_prints(15, 3, self.eq.bpf1_bandw.update_value(0))
-                self.lcd.pos_prints(15, 4, self.eq.bpf1_order.update_value(0))
-                if self.state[d] == 1:
-                    d = 3
-                    self.valid_states[8] = self.valid_states[9] = True
-                    self.lcd.pos_prints(15, 1, self.eq.bpf1_gain.update_value(0))
-                    self.lcd.pos_prints(13, 1, self.marker)
-                    if self.state[d] == 8:
-                        self.lcd.pos_prints(15, 1, self.eq.bpf1_gain.update_value(1))
-                        self.new_state(0)
-                    elif self.state[d] == 9:
-                        self.lcd.pos_prints(15, 1, self.eq.bpf1_gain.update_value(-1))
-                        self.new_state(0)
-                    elif self.state[d] != 0:
-                        a = self.state[d]
-                        self.new_state(0)
-                        if (a > 0) & (a < 5):
-                            self.new_state(0)
-                            self.new_state(a)
-                elif self.state[d] == 2:
-                    d = 3
-                    self.valid_states[8] = self.valid_states[9] = True
-                    self.lcd.pos_prints(15, 2, self.eq.bpf1_center.update_value(0))
-                    self.lcd.pos_prints(13, 2, self.marker)
-                    if self.state[d] == 8:
-                        self.lcd.pos_prints(15, 2, self.eq.bpf1_center.update_value(1))
-                        self.new_state(0)
-                    elif self.state[d] == 9:
-                        self.lcd.pos_prints(15, 2, self.eq.bpf1_center.update_value(-1))
-                        self.new_state(0)
-                    elif self.state[d] != 0:
-                        a = self.state[d]
-                        self.new_state(0)
-                        if (a > 0) & (a < 5):
-                            self.new_state(0)
-                            self.new_state(a)
-                elif self.state[d] == 3:
-                    d = 3
-                    self.valid_states[8] = self.valid_states[9] = True
-                    self.lcd.pos_prints(15, 3, self.eq.bpf1_bandw.update_value(0))
-                    self.lcd.pos_prints(13, 3, self.marker)
-                    if self.state[d] == 8:
-                        self.lcd.pos_prints(15, 3, self.eq.bpf1_bandw.update_value(1))
-                        self.new_state(0)
-                    elif self.state[d] == 9:
-                        self.lcd.pos_prints(15, 3, self.eq.bpf1_bandw.update_value(-1))
-                        self.new_state(0)
-                    elif self.state[d] != 0:
-                        a = self.state[d]
-                        self.new_state(0)
-                        if (a > 0) & (a < 5):
-                            self.new_state(0)
-                            self.new_state(a)
-                elif self.state[d] == 4:
-                    d = 3
-                    self.valid_states[8] = self.valid_states[9] = True
-                    self.lcd.pos_prints(15, 4, self.eq.bpf1_order.update_value(0))
-                    self.lcd.pos_prints(13, 4, self.marker)
-                    if self.state[d] == 8:
-                        self.lcd.pos_prints(15, 4, self.eq.bpf1_order.update_value(1))
-                        self.new_state(0)
-                    elif self.state[d] == 9:
-                        self.lcd.pos_prints(15, 4, self.eq.bpf1_order.update_value(-1))
-                        self.new_state(0)
-                    elif self.state[d] != 0:
-                        a = self.state[d]
-                        self.new_state(0)
-                        if (a > 0) & (a < 5):
-                            self.new_state(0)
-                            self.new_state(a)
-            elif self.state[d] == 4:
-                d = 2
-                self.print_screen(self.eq.bandpass(bp_no=2))
-                self.lcd.pos_prints(15, 1, self.eq.bpf2_gain.update_value(0))
-                self.lcd.pos_prints(15, 2, self.eq.bpf2_center.update_value(0))
-                self.lcd.pos_prints(15, 3, self.eq.bpf2_bandw.update_value(0))
-                self.lcd.pos_prints(15, 4, self.eq.bpf2_order.update_value(0))
-                if self.state[d] == 1:
-                    d = 3
-                    self.valid_states[8] = self.valid_states[9] = True
-                    self.lcd.pos_prints(15, 1, self.eq.bpf2_gain.update_value(0))
-                    self.lcd.pos_prints(13, 1, self.marker)
-                    if self.state[d] == 8:
-                        self.lcd.pos_prints(15, 1, self.eq.bpf2_gain.update_value(1))
-                        self.new_state(0)
-                    elif self.state[d] == 9:
-                        self.lcd.pos_prints(15, 1, self.eq.bpf2_gain.update_value(-1))
-                        self.new_state(0)
-                    elif self.state[d] != 0:
-                        a = self.state[d]
-                        self.new_state(0)
-                        if (a > 0) & (a < 5):
-                            self.new_state(0)
-                            self.new_state(a)
-                elif self.state[d] == 2:
-                    d = 3
-                    self.valid_states[8] = self.valid_states[9] = True
-                    self.lcd.pos_prints(15, 2, self.eq.bpf2_center.update_value(0))
-                    self.lcd.pos_prints(13, 2, self.marker)
-                    if self.state[d] == 8:
-                        self.lcd.pos_prints(15, 2, self.eq.bpf2_center.update_value(1))
-                        self.new_state(0)
-                    elif self.state[d] == 9:
-                        self.lcd.pos_prints(15, 2, self.eq.bpf2_center.update_value(-1))
-                        self.new_state(0)
-                    elif self.state[d] != 0:
-                        a = self.state[d]
-                        self.new_state(0)
-                        if (a > 0) & (a < 5):
-                            self.new_state(0)
-                            self.new_state(a)
-                elif self.state[d] == 3:
-                    d = 3
-                    self.valid_states[8] = self.valid_states[9] = True
-                    self.lcd.pos_prints(15, 3, self.eq.bpf2_bandw.update_value(0))
-                    self.lcd.pos_prints(13, 3, self.marker)
-                    if self.state[d] == 8:
-                        self.lcd.pos_prints(15, 3, self.eq.bpf2_bandw.update_value(1))
-                        self.new_state(0)
-                    elif self.state[d] == 9:
-                        self.lcd.pos_prints(15, 3, self.eq.bpf2_bandw.update_value(-1))
-                        self.new_state(0)
-                    elif self.state[d] != 0:
-                        a = self.state[d]
-                        self.new_state(0)
-                        if (a > 0) & (a < 5):
-                            self.new_state(0)
-                            self.new_state(a)
-                elif self.state[d] == 4:
-                    d = 3
-                    self.valid_states[8] = self.valid_states[9] = True
-                    self.lcd.pos_prints(15, 4, self.eq.bpf2_order.update_value(0))
-                    self.lcd.pos_prints(13, 4, self.marker)
-                    if self.state[d] == 8:
-                        self.lcd.pos_prints(15, 4, self.eq.bpf2_order.update_value(1))
-                        self.new_state(0)
-                    elif self.state[d] == 9:
-                        self.lcd.pos_prints(15, 4, self.eq.bpf2_order.update_value(-1))
-                        self.new_state(0)
-                    elif self.state[d] != 0:
-                        a = self.state[d]
-                        self.new_state(0)
-                        if (a > 0) & (a < 5):
-                            self.new_state(0)
-                            self.new_state(a)
-                
-        elif self.state[d] == 4:
-            self.new_state(0)
-                
-                
-        else:
-            self.print_screen(self.mm.main_menu())
+    def value_menu(self, mobj, offset=0, ioffset=0):
+        mobj.p[self.state[offset + 0]].mm()
+        # threshold
+        if   self.state[offset + 1] != 0:
+            mobj.update_value(0, self.state[offset + 0], self.state[offset + 1])
+            self.valid_states[1:5] = False
+            self.valid_states[8:10] = True
+            if   self.state[offset + 2] == 8:
+                return mobj.update_value(-1, self.state[offset + 0], self.state[offset + 1])
+            elif self.state[offset + 2] == 9: 
+                return mobj.update_value(1, self.state[offset + 0], self.state[offset + 1])
             
     def translator(self, key):
-        if key == '1':
-            state = 1
-        elif key == '2':
-            state = 2
-        elif key == '3':
-            state = 3
-        elif key == '4':
-            state = 4
-        elif key == '-':
-            state = 9
-        elif key == '=':
-            state = 8
-        else:
+        if   key == '0': # select menu item 1
             state = 0
+        elif key == '1':
+            state = 1
+        elif key == '2': # select menu item 2
+            state = 2
+        elif key == '3': # select menu item 3
+            state = 3
+        elif key == '4': # select menu item 4
+            state = 4 
+        elif key == '-': # -1 to selected value
+            state = 8
+        elif key == '=': # +1 to selected value
+            state = 9
+        else:
+            state = 10
         return state
-    
-    def print_screen(self, screen):
-        self.lcd.clear()
-        for i in range(len(screen)):
-            self.lcd.pos_prints(1, i + 1, screen[i])
             
     
     class Menus:
-        def main_menu(self):
+        def __init__(self):
+            self.p = np.empty(5, dtype=object)
+            self.p[1] = self.Compressor()
+            self.p[2] = self.Convolver()
+            self.p[3] = self.Equalizer()
+        
+        def mm(self):
                 screen = ["1 Compressor",
                           "2 Convolver",
                           "3 Equalizer",
                           "4 ------"]
-                return screen
+                lcd.prints_screen(screen)
+                return None
+            
+        def update_value(self, increment, i1, i2):
+            value = self.p[i1].p[i2].update_value(increment)
+            self.p[i1].mm()
+            lcd.xy_prints(moff, i2, m)
+            return value
+        
+        def update_compressor(self, value, param):
+            pass
+        
         class Compressor:
             def __init__(self):
-                self.thresh = VerticalSlider(-80, 0, -15, -1)
-                self.ratio = VerticalSlider(1, 10, 4, 0.5)
-                self.atk = VerticalSlider(0.005, 0.5, 0.01, 0.005, decimal_places=3)
-                self.post = VerticalSlider(0.005, 1, 0.5, 0.005, decimal_places=3)
+                self.p = np.empty(5, dtype=object)
                 
-            def main_menu(self):
+                self.p[1] = VerticalSlider(-80, 0, cfg.threshold, 1)  # threshold
+                self.p[2] = VerticalSlider(2, 15, cfg.ratio, 1) # ratio
+                self.p[3] = VerticalSlider(0.01, 0.5, cfg.attack, 0.01, decimal_places=2) # attack
+                self.p[4] = VerticalSlider(0, 20, cfg.post_gain, 1, decimal_places=2) # post gain
+
+            
+            def mm(self):
                 screen = ["1 Threshold",
                           "2 Ratio",
                           "3 Attack",
                           "4 Post Gain"]
-                return screen
-            
-            def get_values(self):
-                return self.thresh.get_value(), self.ration.get_value(), self.atk.get_value(), self.post.get_value()
+                lcd.prints_screen(screen)
+                for i in range(1, 5): lcd.xy_prints(voff, i, self.p[i].get_value_str())
+                return None
             
         class Convolver:
             def __init__(self):
-                self.imp = VerticalSlider(1, 4, 0, 1, decimal_places=0)
-                self.wet = VerticalSlider(-12, 12, 0, 0.5, decimal_places=1)
-                self.dry = VerticalSlider(-12, 12, 0, 0.5, decimal_places=1)
-                self.post = VerticalSlider(-12, 12, 0, 0.5, decimal_places=1)
+                self.p = np.empty(5, dtype=object)
+                self.p[1] = VerticalSlider(1, 4, cfg.imp_number, 1, decimal_places=0) # imp number
+                self.p[2] = VerticalSlider(0, 2, cfg.wet, 0.25, decimal_places=2) # wet
+                self.p[3] = VerticalSlider(0, 2, cfg.dry, 0.25, decimal_places=2) # dry
+                self.p[4] = VerticalSlider(0, 2, cfg.post, 0.25, decimal_places=2) # post gain
                 
-            def main_menu(self):
+            def mm(self):
                 screen = ["1 Impulse",
                           "2 Wet Gain",
                           "3 Dry Gain",
                           "4 Post Gain"]
-                return screen
-            def get_values(self):
-                return self.imp.get_value(), self.wet.get_value(), self.dry.get_value(), self.post.get_value()
-                
+                lcd.prints_screen(screen)
+                for i in range(1, 5): lcd.xy_prints(voff, i, str(self.p[i].get_value_str()))
+                return None
+            
         class Equalizer:
-            def __init__(self):
-                self.lpf_enabled = VerticalSlider(0, 1, 0, 1, decimal_places=0)
-                self.lpf_cutoff = VerticalSlider(1000, 10000, 5000, 1000, decimal_places=0)
-                self.lpf_order = VerticalSlider(1, 4, 1, 1, decimal_places=0)
-                
-                self.hpf_enabled = VerticalSlider(0, 1, 0, 1, decimal_places=0)
-                self.hpf_cutoff = VerticalSlider(100, 1000, 100, 100, decimal_places=0)
-                self.hpf_order = VerticalSlider(1, 4, 1, 1, decimal_places=0)
-                
-                self.bpf1_gain = VerticalSlider(-12, 12, 0, 0.5, decimal_places=1)
-                self.bpf1_center = VerticalSlider(100, 15000, 1000, 100, decimal_places=0)
-                self.bpf1_bandw = VerticalSlider(10, 100, 50, 10, decimal_places=0)
-                self.bpf1_order = VerticalSlider(1, 4, 1, 1, decimal_places=0)             
-                
-                self.bpf2_gain = VerticalSlider(-12, 12, 0, 0.5, decimal_places=1)
-                self.bpf2_center = VerticalSlider(100, 15000, 1000, 100, decimal_places=0)
-                self.bpf2_bandw = VerticalSlider(10, 100, 50, 10, decimal_places=0)
-                self.bpf2_order = VerticalSlider(1, 4, 1, 1, decimal_places=0)         
-                
-            def get_lpf_values(self):
-                return self.lpf_enabled.get_value(), self.lpf_cutoff.get_value(), self.lpf_order.get_value()
-            
-            def get_hpf_values(self):
-                return self.hpf_enabled.get_value(), self.hpf_cutoff.get_value(), self.hpf_order.get_value()
-            
-            def get_bpf1_values(self):
-                return self.bpf1_gain.get_value(), self.bpf1_center.get_value(), self.bpf1_bandw.get_value(), self.bpf1_order.get_value()
-            
-            def get_bpf2_values(self):
-                return self.bpf2_gain.get_value(), self.bpf2_center.get_value(), self.bpf2_bandw.get_value(), self.bpf2_order.get_value()
-            
-            def main_menu(self):
+            def __init__(self):     
+                self.p = np.empty(5, dtype=object)
+                self.p[1] = self.lp()
+                self.p[2] = self.hp()
+                self.p[3] = self.bll(i=1)
+                self.p[4] = self.bll(i=2)
+            def update_value(self, increment, i1, i2):
+                value = self.p[i1].p[i2].update_value(increment)
+                self.p[i1].mm()
+                lcd.xy_prints(moff, i2, m)
+                return value
+            def mm(self):
                 screen = ["1 Lowpass",
                           "2 Highpass",
                           "3 Peaking 1",
                           "4 Peaking 2"]
-                return screen
+                lcd.prints_screen(screen)
+                return None
             
-            def lowpass(self):
-                screen = ["1 LPF On",
-                          "2 Cutoff",
-                          "3 Order",
-                          "4 ------"]
-                return screen
+            class lp:
+                def __init__(self):
+                    self.p = np.empty(5, dtype=object)
+                    self.p[1] = VerticalSlider(0, 1, cfg.lpf_en, 1, decimal_places=0) # enabled
+                    self.p[2] = VerticalSlider(5000, 10000, cfg.lpf_fc, 1000, decimal_places=0)# cutoff
+                    self.p[3] = VerticalSlider(1, 4, cfg.lpf_N, 1, decimal_places=0) # order
+                    
+                def mm(self):
+                    screen = ["1 LPF On",
+                              "2 Cutoff",
+                              "3 Order",
+                              "4 ------"]
+                    lcd.prints_screen(screen)
+                    for i in range(1, 4): lcd.xy_prints(voff, i, str(self.p[i].get_value_str()))
+                    return None
             
-            def highpass(self):
-                screen = ["1 HPF On",
-                          "2 Cutoff",
-                          "3 Order",
-                          "4 ------"]
-                return screen
-            def bandpass(self, bp_no=1):
-                screen = ["1 Gain",
-                          "2 Center",
-                          "3 Bandwidth",
-                          "4 Order"]
-                return screen                
+            class hp:
+                def __init__(self):
+                    self.p = np.empty(5, dtype=object)
+                    self.p[1] = VerticalSlider(0, 1, cfg.hpf_en, 1, decimal_places=0) # enabled
+                    self.p[2] = VerticalSlider(100, 1000, cfg.hpf_fc, 100, decimal_places=0) # cutoff
+                    self.p[3] = VerticalSlider(1, 4, 1, 1, decimal_places=0) # order
+                    
+                def mm(self):
+                    screen = ["1 HPF On",
+                              "2 Cutoff",
+                              "3 Order",
+                              "4 ------"]
+                    lcd.prints_screen(screen)
+                    for i in range(1, 4): lcd.xy_prints(voff, i, str(self.p[i].get_value_str()))
+                    return None
+            class bll:
+                def __init__(self, i=1):
+                    if i==1:
+                        en = cfg.bll1_en
+                        fgm = cfg.bll1_fgm
+                        bfac = cfg.bll1_bfac
+                        gdb = cfg.bll1_gdb
+                    else:
+                        en = cfg.bll2_en
+                        fgm = cfg.bll2_fgm
+                        bfac = cfg.bll2_bfac
+                        gdb = cfg.bll2_gdb
+                    self.p = np.empty(5, dtype=object)
+                    self.p[1] = VerticalSlider(0, 1, en, 1, decimal_places=1) # enabled
+                    self.p[2] = VerticalSlider(100, 15000, fgm, 100, decimal_places=0) # center
+                    self.p[3] = VerticalSlider(0.5, 2, bfac, 0.5, decimal_places=1) # bandwith
+                    self.p[4] = VerticalSlider(-12, 12, gdb, 1, decimal_places=0)# gain
+                
+                def mm(self, bp_no=1):
+                    screen = ["1 BLL on",
+                              "2 Center",
+                              "3 Bandwidth",
+                              "4 Gain"]
+                    lcd.prints_screen(screen)
+                    for i in range(1, 5): lcd.xy_prints(voff, i, str(self.p[i].get_value_str()))
+                    return None       
     
 class VerticalSlider:
     def __init__(self, min_value, max_value, initial_value, step_by, height=3, subheight=8, decimal_places=2):
@@ -613,10 +254,13 @@ class VerticalSlider:
             self.value = self.max_value
         elif self.value < self.min_value: 
             self.value = self.min_value
-        return str(round(self.value, self.decimal_places))
+        if self.decimal_places == 0:
+            return int(self.value)
+        else:
+            return self.value
     
-    def get_value(self):
-        return self.value
+    def get_value_str(self):
+        return str(round(self.value, self.decimal_places))
     
     def update_slider(self):
         value_rel = self.value_rel

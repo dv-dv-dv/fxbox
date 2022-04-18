@@ -18,8 +18,9 @@ def main():
     wfo.setframerate(cfg.samplerate)
     in_data = wfi.readframes(cfg.buffer_size)
     
-    comp = compressor.Compressor()
-    conv = convolver.Convolver()
+    # comp = compressor.Compressor()
+    # limiter = compressor.Compressor(threshold=-6, ratio=999, knee_width=0, attack=0.001, release=0.001, rms=True)
+    # conv = convolver.Convolver()
     equal = equalizer.Equalizer()
     count = 0
     
@@ -35,8 +36,8 @@ def main():
         # test1 = comp.compress(test1)
         test1 = equal.equalize(test1)
         # test1 = conv.convolve(test1)
-        if count == int(wave_input_blength*2/4):
-            conv.update_params(imp_number=3, dry=0.5)
+        # if count == int(wave_input_blength*2/4):
+            # conv.update_params(imp_number=3, dry=0.5)
         if np.max(test1) > 1:
             print("clipping!")
         # processing ends here

@@ -62,11 +62,21 @@ class lcd_screen:
         self.ser.write(text.encode())
         self.update_pos(self.x + len(text), self.y)
         
-    def prints_pos(self, text, x, y):
+    def prints_xy(self, text, x, y):
         self.set_pos(x, y)
         self.prints(text)
+    
+    def prints_screen(self, screen):
+        self.clear()
+        for i in range(len(screen)):
+            self.xy_prints(1, i + 1, screen[i])
+    
+    def x_prints_screen(self, screen, x):
+        self.clear()
+        for i in range(len(screen)):
+            self.xy_prints(x, i + 1, screen[i])
         
-    def pos_prints(self, x, y, text):
+    def xy_prints(self, x, y, text):
         self.set_pos(x, y)
         self.prints(text)
         
