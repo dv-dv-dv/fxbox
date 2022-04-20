@@ -3,7 +3,9 @@ buffer_size = 256
 samplerate = 44100 # do not change
 bytes_per_channel = 2 # do not change
 channels = 2 # do not change
-
+#
+master_pre_gain_db = 0
+master_post_gain_db = 0
 # compressor variables
 threshold = -40
 ratio = 10

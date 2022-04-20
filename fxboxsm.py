@@ -45,7 +45,6 @@ class FXBox:
     def update_state(self):
         self.valid_states = np.copy(self.def_valid_states)
         self.valid_states[8:10] = False
-        self.valid_states[4] = False
         if self.state[0] == 0:
             self.m.mm()
         elif self.state[0] == 3:
@@ -59,13 +58,14 @@ class FXBox:
                 return self.value_menu(self.m.p[self.state[0]], offset=1), self.state[0:3]
         # compressor menu
         elif self.state[0] != 0:
-            self.valid_states[4] = True
+            if self.state[0] == 4:
+                self.valid_states[3:5] = False
             return self.value_menu(self.m), self.state[0:2]
         return None, None
                 
     def value_menu(self, mobj, offset=0, ioffset=0):
         mobj.p[self.state[offset + 0]].mm()
-        # threshold
+
         if   self.state[offset + 1] != 0:
             mobj.update_value(0, self.state[offset + 0], self.state[offset + 1])
             self.valid_states[1:5] = False
@@ -101,12 +101,13 @@ class FXBox:
             self.p[1] = self.Compressor()
             self.p[2] = self.Convolver()
             self.p[3] = self.Equalizer()
+            self.p[4] = self.MasterControls()
         
         def mm(self):
                 screen = ["1 Compressor",
                           "2 Convolver",
                           "3 Equalizer",
-                          "4 ------"]
+                          "4 etc."]
                 lcd.prints_screen(screen)
                 return None
             
@@ -118,7 +119,40 @@ class FXBox:
         
         def update_compressor(self, value, param):
             pass
-        
+        class MasterControls:
+            def __init__(self):
+                self.p = np.empty(5, dtype=object)
+                
+                self.p[1] = VerticalSlider(-20, 20, cfg.master_pre_gain_db, 1)  # threshold
+                self.p[2] = VerticalSlider(-20, 20, cfg.master_post_gain_db, 1) # ratio
+
+            
+            def mm(self):
+                screen = ["1 Pre Gain",
+                          "2 Post Gain",
+                          "3 ------",
+                          "4 ------"]
+                lcd.prints_screen(screen)
+                for i in range(1, 3): lcd.xy_prints(voff, i, self.p[i].get_value_str())
+                return None
+            
+        class Convolver:
+            def __init__(self):
+                self.p = np.empty(5, dtype=object)
+                self.p[1] = VerticalSlider(1, 4, cfg.imp_number, 1, decimal_places=0) # imp number
+                self.p[2] = VerticalSlider(0, 2, cfg.wet, 0.25, decimal_places=2) # wet
+                self.p[3] = VerticalSlider(0, 2, cfg.dry, 0.25, decimal_places=2) # dry
+                self.p[4] = VerticalSlider(0, 2, cfg.post, 0.25, decimal_places=2) # post gain
+                
+            def mm(self):
+                screen = ["1 Impulse",
+                          "2 Wet Gain",
+                          "3 Dry Gain",
+                          "4 Post Gain"]
+                lcd.prints_screen(screen)
+                for i in range(1, 5): lcd.xy_prints(voff, i, str(self.p[i].get_value_str()))
+                return None
+            
         class Compressor:
             def __init__(self):
                 self.p = np.empty(5, dtype=object)
